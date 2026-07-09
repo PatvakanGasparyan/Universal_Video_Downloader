@@ -1,0 +1,16 @@
+{
+  "name": "Universal Video Downloader",
+  "short_name": "VideoDL",
+  "description": "Download videos from supported websites",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "/static/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

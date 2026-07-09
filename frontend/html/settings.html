@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Universal Video Downloader</title>
+  <link rel="icon" type="image/svg+xml" href="/static/assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body x-data="settingsApp()" x-init="init()" x-cloak>
+  <div class="animated-bg" aria-hidden="true"></div>
+  <nav class="glass mx-4 mt-4 px-6 py-3 flex items-center justify-between" role="navigation">
+    <a href="/" class="flex items-center gap-2 font-bold"><i class="fas fa-download text-green-400"></i> <span x-text="t('app_title')"></span></a>
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="/" class="nav-link" x-text="t('nav_home')"></a>
+      <a href="/history" class="nav-link" x-text="t('nav_history')"></a>
+      <a href="/settings" class="nav-link active" x-text="t('nav_settings')"></a>
+      <select x-model="currentLang" @change="changeLang(currentLang)"
+              class="glass px-3 py-1.5 rounded-lg text-sm bg-transparent" aria-label="Language">
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="hy">Հայերեն</option>
+      </select>
+    </div>
+  </nav>
+
+  <main class="max-w-2xl mx-auto px-4 py-10">
+    <h1 class="text-3xl font-bold mb-6" x-text="t('settings_title')">Settings</h1>
+    <form @submit.prevent="save()" class="glass-card p-6 space-y-5">
+      <div>
+        <label class="block text-sm mb-1" x-text="t('default_quality')"></label>
+        <select x-model="settings.default_quality" class="url-input w-full">
+          <template x-for="q in qualities" :key="q"><option :value="q" x-text="q.toUpperCase()"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('default_format')"></label>
+        <select x-model="settings.default_format" class="url-input w-full">
+          <template x-for="f in formats" :key="f"><option :value="f" x-text="f.toUpperCase()"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('default_folder')"></label>
+        <input type="text" x-model="settings.default_folder" class="url-input w-full">
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('preferred_language')"></label>
+        <select x-model="settings.preferred_language"
+                @change="changeLang(settings.preferred_language)" class="url-input w-full">
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="hy">Հայերեն</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('theme')"></label>
+        <select x-model="settings.theme" @change="Theme.apply(settings.theme)" class="url-input w-full">
+          <option value="dark" x-text="t('theme_dark')"></option>
+          <option value="light" x-text="t('theme_light')"></option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('max_downloads')"></label>
+        <input type="number" x-model.number="settings.max_concurrent_downloads" min="1" max="10" class="url-input w-full">
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="checkbox" x-model="settings.auto_convert_mp3" id="auto-mp3">
+        <label for="auto-mp3" x-text="t('auto_mp3')"></label>
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="checkbox" x-model="settings.auto_update_ytdlp" id="auto-update">
+        <label for="auto-update" x-text="t('auto_update')"></label>
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('ffmpeg_path')"></label>
+        <input type="text" x-model="settings.ffmpeg_location" class="url-input w-full" placeholder="ffmpeg">
+      </div>
+      <div>
+        <label class="block text-sm mb-1" x-text="t('cookies_file')"></label>
+        <input type="text" x-model="settings.cookies_file" class="url-input w-full"
+               placeholder="./config/cookies.txt">
+        <p class="text-xs text-[var(--text-secondary)] mt-1" x-text="t('cookies_file_hint')"></p>
+      </div>
+      <button type="submit" class="btn-primary w-full" x-text="t('save_settings')">Save Settings</button>
+      <p x-show="saved" class="text-green-400 text-sm text-center" x-text="t('settings_saved')"></p>
+    </form>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/localization.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script>
+    function settingsApp() {
+      return {
+        ...I18n.mixin(),
+        settings: {},
+        saved: false,
+        qualities: ['best','8k','4k','1440p','1080p','720p','480p','360p'],
+        formats: ['mp4','mkv','webm','mp3','aac','m4a'],
+        async init() {
+          await this.initI18n();
+          this.settings = await API.getSettings();
+          if (this.settings.theme) Theme.apply(this.settings.theme);
+        },
+        async save() {
+          this.settings = await API.saveSettings(this.settings);
+          this.saved = true;
+          setTimeout(() => this.saved = false, 3000);
+        },
+      };
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>History - Universal Video Downloader</title>
+  <link rel="icon" type="image/svg+xml" href="/static/assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body x-data="historyApp()" x-init="init()" x-cloak>
+  <div class="animated-bg" aria-hidden="true"></div>
+  <nav class="glass mx-4 mt-4 px-6 py-3 flex items-center justify-between" role="navigation">
+    <a href="/" class="flex items-center gap-2 font-bold"><i class="fas fa-download text-green-400"></i> <span x-text="t('app_title')"></span></a>
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="/" class="nav-link" x-text="t('nav_home')"></a>
+      <a href="/history" class="nav-link active" x-text="t('nav_history')"></a>
+      <a href="/settings" class="nav-link" x-text="t('nav_settings')"></a>
+      <select x-model="currentLang" @change="changeLang(currentLang)"
+              class="glass px-3 py-1.5 rounded-lg text-sm bg-transparent" aria-label="Language">
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="hy">Հայերեն</option>
+      </select>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 py-10">
+    <h1 class="text-3xl font-bold mb-6" x-text="t('nav_history')">History</h1>
+    <div class="flex gap-3 mb-6">
+      <input type="search" x-model="query" @input.debounce.300ms="loadHistory()" :placeholder="t('search_history')"
+             class="url-input flex-1" aria-label="Search history">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" x-model="favoriteOnly" @change="load()"> <span x-text="t('favorite')"></span>
+      </label>
+    </div>
+
+    <div x-show="items.length === 0" class="glass-card p-8 text-center text-[var(--text-secondary)]" x-text="t('no_history')"></div>
+
+    <div class="space-y-3">
+      <template x-for="item in items" :key="item.id">
+        <div class="glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold truncate" x-text="item.title || item.url"></h3>
+            <p class="text-sm text-[var(--text-secondary)]">
+              <span x-text="item.quality.toUpperCase()"></span> ·
+              <span x-text="item.format.toUpperCase()"></span> ·
+              <span x-text="formatBytes(item.file_size)"></span> ·
+              <span x-text="item.status"></span>
+            </p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button @click="toggleFav(item.id)" class="btn-secondary text-sm" :aria-label="t('favorite')">
+              <i class="fas fa-star" :class="item.is_favorite ? 'text-yellow-400' : ''"></i>
+            </button>
+            <button @click="redownload(item)" class="btn-secondary text-sm" x-text="t('download_again')"></button>
+            <button @click="remove(item.id)" class="btn-secondary text-sm text-red-400" x-text="t('delete')"></button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/localization.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script>
+    function historyApp() {
+      return {
+        ...I18n.mixin(),
+        items: [], query: '', favoriteOnly: false,
+        async init() {
+          await this.initI18n();
+          await this.loadHistory();
+        },
+        async loadHistory() {
+          this.items = await API.getHistory(this.query, this.favoriteOnly);
+        },
+        async load() {
+          await this.loadHistory();
+        },
+        async remove(id) { await API.deleteHistory(id); await this.loadHistory(); },
+        async toggleFav(id) { await API.toggleFavorite(id); await this.loadHistory(); },
+        redownload(item) { location.href = '/?url=' + encodeURIComponent(item.url); },
+        formatBytes,
+      };
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</body>
+</html>

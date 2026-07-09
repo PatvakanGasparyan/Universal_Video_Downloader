@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Video Downloader</title>
+  <meta name="description" content="Download videos in the best quality from YouTube, TikTok, Instagram, and hundreds of supported websites.">
+  <meta name="keywords" content="video downloader, youtube downloader, tiktok downloader, yt-dlp">
+  <meta property="og:title" content="Universal Video Downloader">
+  <meta property="og:description" content="Download videos in the best quality from supported websites.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Universal Video Downloader">
+  <link rel="icon" type="image/svg+xml" href="/static/assets/favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body x-data="downloaderApp()" x-init="init()" x-cloak>
+  <div class="animated-bg" aria-hidden="true"></div>
+
+  <!-- Navigation -->
+  <nav class="glass mx-4 mt-4 px-6 py-3 flex items-center justify-between flex-wrap gap-3" role="navigation" aria-label="Main navigation">
+    <a href="/" class="flex items-center gap-2 text-lg font-bold">
+      <i class="fas fa-download text-green-400" aria-hidden="true"></i>
+      <span x-text="t('app_title')">Universal Video Downloader</span>
+    </a>
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="/" class="nav-link active" x-text="t('nav_home')">Home</a>
+      <a href="/history" class="nav-link" x-text="t('nav_history')">History</a>
+      <a href="/settings" class="nav-link" x-text="t('nav_settings')">Settings</a>
+      <select x-model="currentLang" @change="changeLang(currentLang)"
+              class="glass px-3 py-1.5 rounded-lg text-sm bg-transparent" aria-label="Language">
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="hy">Հայերեն</option>
+      </select>
+      <button @click="Theme.toggle()" class="btn-secondary" aria-label="Toggle theme">
+        <i class="fas" :class="Theme.current === 'dark' ? 'fa-sun' : 'fa-moon'"></i>
+      </button>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Hero -->
+    <section class="text-center mb-10">
+      <h1 class="text-4xl md:text-5xl font-extrabold mb-4 bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent" x-text="t('app_title')">
+        Universal Video Downloader
+      </h1>
+      <p class="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto" x-text="t('app_subtitle')">
+        Download videos in the best quality from supported websites.
+      </p>
+    </section>
+
+    <!-- URL Input -->
+    <section class="glass-card p-6 mb-8 drop-zone"
+             :class="{ 'drag-over': dragOver }"
+             @dragover.prevent="dragOver = true"
+             @dragleave="dragOver = false"
+             @drop.prevent="handleDrop($event)"
+             aria-label="Video URL input">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <label for="url-input" class="sr-only" x-text="t('url_placeholder')">Paste video URL</label>
+        <input id="url-input" type="url" x-model="url"
+               class="url-input" :placeholder="t('url_placeholder')"
+               @keydown.enter="analyze()"
+               aria-required="true">
+        <button @click="analyze()" :disabled="loading" class="btn-primary whitespace-nowrap" aria-label="Analyze video">
+          <i class="fas fa-search mr-2" aria-hidden="true"></i>
+          <span x-text="loading ? '...' : t('analyze_btn')">Analyze</span>
+        </button>
+      </div>
+      <p x-show="error" class="text-red-400 mt-3 text-sm whitespace-pre-line" role="alert" x-text="error"></p>
+      <p class="text-xs text-[var(--text-secondary)] mt-2 text-center" x-text="t('drag_drop')"></p>
+    </section>
+
+    <!-- Video Info Card -->
+    <section x-show="metadata" x-cloak class="glass-card p-6 mb-8" aria-live="polite">
+      <div class="flex flex-col md:flex-row gap-6">
+        <img :src="metadata?.thumbnail" :alt="metadata?.title" class="w-full md:w-64 rounded-xl object-cover aspect-video" loading="lazy">
+        <div class="flex-1">
+          <h2 class="text-xl font-bold mb-2" x-text="metadata?.title"></h2>
+          <div class="grid grid-cols-2 gap-2 text-sm text-[var(--text-secondary)] mb-4">
+            <span><i class="fas fa-user mr-1"></i> <span x-text="metadata?.channel"></span></span>
+            <span><i class="fas fa-clock mr-1"></i> <span x-text="formatDuration(metadata?.duration)"></span></span>
+            <span x-show="metadata?.resolution"><i class="fas fa-expand mr-1"></i> <span x-text="metadata?.resolution"></span></span>
+            <span x-show="metadata?.fps"><i class="fas fa-film mr-1"></i> <span x-text="metadata?.fps + ' fps'"></span></span>
+          </div>
+
+          <!-- Format Selection -->
+          <div class="flex flex-wrap gap-3 mb-4">
+            <div>
+              <label class="text-xs text-[var(--text-secondary)] block mb-1" x-text="t('quality_label')">Quality</label>
+              <select x-model="selectedQuality" class="glass px-3 py-2 rounded-lg bg-transparent text-sm">
+                <template x-for="q in qualities" :key="q">
+                  <option :value="q" x-text="q.toUpperCase()"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-[var(--text-secondary)] block mb-1" x-text="t('format_label')">Format</label>
+              <select x-model="selectedFormat" class="glass px-3 py-2 rounded-lg bg-transparent text-sm">
+                <template x-for="f in formats" :key="f">
+                  <option :value="f" x-text="f.toUpperCase()"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <button @click="startDownload()" :disabled="downloading" class="btn-primary">
+            <i class="fas fa-download mr-2"></i>
+            <span x-text="t('download_btn')">Download</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress Card -->
+    <section x-show="progress" x-cloak class="glass-card p-6 mb-8" aria-live="polite" aria-label="Download progress">
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-semibold" x-text="progress?.message || t('status_downloading')"></span>
+        <span class="text-sm" x-text="(progress?.percent || 0) + '%'"></span>
+      </div>
+      <div class="progress-bar mb-4" role="progressbar" :aria-valuenow="progress?.percent || 0" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-fill" :style="'width:' + (progress?.percent || 0) + '%'"></div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-[var(--text-secondary)]">
+        <div><span x-text="t('progress_downloaded')"></span>: <strong x-text="formatBytes(progress?.downloaded_bytes) + ' / ' + formatBytes(progress?.total_bytes)"></strong></div>
+        <div><span x-text="t('progress_speed')"></span>: <strong x-text="formatSpeed(progress?.speed)"></strong></div>
+        <div><span x-text="t('progress_eta')"></span>: <strong x-text="formatEta(progress?.eta)"></strong></div>
+        <div><span x-text="t('progress_percent')"></span>: <strong x-text="(progress?.percent || 0) + '%'"></strong></div>
+      </div>
+      <div class="flex gap-2 mt-4" x-show="progress?.status === 'downloading' || progress?.status === 'paused'">
+        <button @click="pauseResume()" class="btn-secondary text-sm" x-text="progress?.status === 'paused' ? t('resume') : t('pause')"></button>
+        <button @click="cancelDownload()" class="btn-secondary text-sm text-red-400" x-text="t('cancel')"></button>
+      </div>
+    </section>
+
+    <!-- Success Card -->
+    <section x-show="completed" x-cloak class="glass-card p-8 text-center mb-8">
+      <div class="success-checkmark mx-auto mb-4">
+        <i class="fas fa-check text-3xl text-white"></i>
+      </div>
+      <h2 class="text-2xl font-bold mb-2" x-text="t('success_title')">Download Complete!</h2>
+      <p class="text-[var(--text-secondary)] mb-4" x-text="progress?.current_file"></p>
+      <div class="flex justify-center gap-3 flex-wrap">
+        <button @click="reset()" class="btn-primary" x-text="t('download_another')">Download Another</button>
+        <button @click="startDownload()" class="btn-secondary" x-text="t('download_again')">Download Again</button>
+      </div>
+    </section>
+
+    <!-- Supported Platforms -->
+    <section class="text-center">
+      <h2 class="text-2xl font-bold mb-2" x-text="t('supported_platforms')">Supported Platforms</h2>
+      <p class="text-sm text-[var(--text-secondary)] mb-6" x-text="t('platforms_note')"></p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <template x-for="p in platforms" :key="p">
+          <span class="platform-badge">
+            <i class="fab" :class="platformIcon(p)"></i>
+            <span x-text="p"></span>
+          </span>
+        </template>
+      </div>
+    </section>
+  </main>
+
+  <footer class="text-center py-8 text-sm text-[var(--text-secondary)]">
+    <p>&copy; 2026 Universal Video Downloader &mdash; MIT License</p>
+  </footer>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/localization.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</body>
+</html>
