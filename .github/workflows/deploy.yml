@@ -33,8 +33,22 @@ jobs:
           script: |
             set -euo pipefail
 
+            echo "==> Шаг 0: Автоматически добавляем память (Swap)"
+            if [ ! -f /swapfile ]; then
+              sudo fallocate -l 2G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+              echo "Запасная память на 2GB успешно создана!"
+            else
+              echo "Запасная память уже существует."
+            fi
+
+            echo "==> Шаг 0.5: Очистка прерванных установок"
+            sudo dpkg --configure -a || true
+
             echo "==> Шаг 1: Устанавливаем нужные программы (git и docker)"
-            sudo apt-get update
+            sudo apt-get update -y
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git docker.io
 
             APP_DIR="/opt/universal-video-downloader"
