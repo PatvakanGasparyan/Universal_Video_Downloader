@@ -1,0 +1,7 @@
+aws_region      = "us-east-1"
+project_name    = "universal-video-downloader"
+environment     = "dev"
+instance_type   = "t3.medium"
+ssh_key_name    = "your-ec2-keypair-name"
+allowed_ssh_cidr = "YOUR.IP.ADDRESS/32"
+allowed_app_cidr = "0.0.0.0/0"

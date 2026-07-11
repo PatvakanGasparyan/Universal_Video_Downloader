@@ -16,6 +16,7 @@ from backend.config.settings import get_settings
 from backend.database.session import async_session_factory
 from backend.models.schemas import DownloadProgress, DownloadRecord, DownloadStatus
 from backend.services.history_service import settings_service
+from backend.services.s3_service import s3_storage
 from backend.services.security import safe_join
 from backend.services.ytdlp_service import ytdlp_service
 
@@ -267,12 +268,30 @@ class DownloadManager:
             active.progress.percent = 100.0
             active.progress.message = "Finished"
             active.progress.stage = "Complete"
+            file_size = file_path.stat().st_size if file_path.exists() else 0
             if file_path.exists():
-                active.progress.downloaded_bytes = file_path.stat().st_size
-                active.progress.total_bytes = file_path.stat().st_size
+                active.progress.downloaded_bytes = file_size
+                active.progress.total_bytes = file_size
+
+            s3_key = ""
+            s3_url = ""
+            final_path = file_path
+
+            if s3_storage.is_enabled and file_path.exists():
+                active.progress.status = DownloadStatus.CONVERTING
+                active.progress.stage = "Uploading"
+                active.progress.message = "Uploading to S3..."
+                await self._broadcast(active.progress)
+                s3_key, s3_url = await s3_storage.upload_and_cleanup(file_path, download_id)
+                final_path = Path(s3_url)
 
             await self._update_history_complete(
-                download_id, file_path, DownloadStatus.COMPLETED
+                download_id,
+                final_path,
+                DownloadStatus.COMPLETED,
+                s3_key=s3_key,
+                s3_url=s3_url,
+                file_size=file_size,
             )
             await self._broadcast(active.progress)
             logger.info("Download completed: %s", download_id, extra={"download_id": download_id})
@@ -312,7 +331,13 @@ class DownloadManager:
                 await session.commit()
 
     async def _update_history_complete(
-        self, download_id: str, file_path: Path, status: DownloadStatus
+        self,
+        download_id: str,
+        file_path: Path,
+        status: DownloadStatus,
+        s3_key: str = "",
+        s3_url: str = "",
+        file_size: int = 0,
     ) -> None:
         async with async_session_factory() as session:
             result = await session.execute(
@@ -321,12 +346,19 @@ class DownloadManager:
             record = result.scalar_one_or_none()
             if record:
                 record.status = status
-                record.file_path = str(safe_join(
-                    self.settings.resolved_downloads_dir,
-                    file_path.name,
-                ))
-                record.file_name = file_path.name
-                record.file_size = file_path.stat().st_size if file_path.exists() else 0
+                if s3_url:
+                    record.file_path = s3_url
+                    record.s3_key = s3_key
+                    record.s3_url = s3_url
+                else:
+                    record.file_path = str(safe_join(
+                        self.settings.resolved_downloads_dir,
+                        file_path.name,
+                    ))
+                record.file_name = Path(s3_key).name if s3_key else file_path.name
+                record.file_size = file_size if file_size else (
+                    file_path.stat().st_size if file_path.exists() else 0
+                )
                 record.completed_at = datetime.now(UTC)
                 try:
                     app_settings = await settings_service.get_settings()

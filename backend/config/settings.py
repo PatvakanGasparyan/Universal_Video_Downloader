@@ -61,6 +61,23 @@ class Settings(BaseSettings):
 
     redis_url: str | None = Field(default=None, alias="REDIS_URL")
 
+    # AWS S3 storage
+    s3_enabled: bool = Field(default=False, alias="S3_ENABLED")
+    aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
+    aws_s3_bucket: str = Field(default="", alias="AWS_S3_BUCKET")
+    aws_access_key_id: str | None = Field(default=None, alias="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str | None = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")
+    s3_prefix: str = Field(default="downloads", alias="S3_PREFIX")
+    s3_delete_local_after_upload: bool = Field(
+        default=True,
+        alias="S3_DELETE_LOCAL_AFTER_UPLOAD",
+    )
+
+    @property
+    def s3_configured(self) -> bool:
+        """Return True when S3 uploads should be used."""
+        return self.s3_enabled and bool(self.aws_s3_bucket)
+
     @property
     def resolved_downloads_dir(self) -> Path:
         path = self.downloads_dir.resolve()

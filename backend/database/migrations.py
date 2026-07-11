@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 # (table_name, column_name, column_ddl_suffix)
 _SQLITE_COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("app_settings", "cookies_file", "TEXT NOT NULL DEFAULT ''"),
+    ("download_history", "s3_key", "TEXT NOT NULL DEFAULT ''"),
+    ("download_history", "s3_url", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 

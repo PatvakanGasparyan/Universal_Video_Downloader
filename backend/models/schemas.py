@@ -38,6 +38,8 @@ class DownloadRecord(Base):
     file_size: Mapped[int] = mapped_column(Integer, default=0)
     file_path: Mapped[str] = mapped_column(Text, default="")
     file_name: Mapped[str] = mapped_column(String(512), default="")
+    s3_key: Mapped[str] = mapped_column(Text, default="")
+    s3_url: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(32), default=DownloadStatus.QUEUED)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -158,6 +160,8 @@ class HistoryItem(BaseModel):
     is_favorite: bool
     created_at: datetime
     file_name: str = ""
+    s3_key: str = ""
+    s3_url: str = ""
 
     model_config = {"from_attributes": True}
 

@@ -59,3 +59,10 @@ Thumbs.db
 
 # Node (if added later)
 node_modules/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
