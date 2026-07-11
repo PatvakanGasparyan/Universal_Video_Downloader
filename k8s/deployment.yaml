@@ -25,7 +25,9 @@ spec:
     spec:
       containers:
         - name: backend
-          # Build on the EC2 node: docker build -t universal-video-downloader:latest .
+          # Build and load into k3s on the EC2 node:
+          #   docker build -t universal-video-downloader:latest .
+          #   docker save universal-video-downloader:latest | sudo k3s ctr images import -
           image: universal-video-downloader:latest
           imagePullPolicy: IfNotPresent
           ports:
