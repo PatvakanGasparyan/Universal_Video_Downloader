@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uvd-config
+  namespace: universal-video-downloader
+  labels:
+    app.kubernetes.io/name: universal-video-downloader
+    app.kubernetes.io/component: backend
+data:
+  # Application
+  DEBUG: "false"
+  BACKEND_PORT: "8000"
+  LOG_LEVEL: "INFO"
+
+  # Database (SQLite — each pod keeps its own DB unless you switch to PostgreSQL)
+  DATABASE_URL: "sqlite+aiosqlite:///./data/app.db"
+
+  # Downloads
+  DOWNLOADS_DIR: "./backend/downloads"
+  TEMP_DIR: "./backend/downloads/temp"
+  MAX_CONCURRENT_DOWNLOADS: "3"
+  METADATA_CACHE_TTL: "3600"
+  RATE_LIMIT: "30/minute"
+
+  # Paths inside the container
+  LOG_DIR: "./logs"
+  COOKIES_FILE: "./config/cookies.txt"
+
+  # CORS — replace with your public URL after Terraform gives you the EC2 IP
+  CORS_ORIGINS: '["http://localhost:8000"]'
+
+  # AWS S3 — non-sensitive values (match terraform output "app_env_template")
+  S3_ENABLED: "true"
+  AWS_REGION: "us-east-1"
+  AWS_S3_BUCKET: "REPLACE_WITH_TERRAFORM_OUTPUT_s3_bucket_name"
+  S3_PREFIX: "downloads"
+  S3_DELETE_LOCAL_AFTER_UPLOAD: "true"

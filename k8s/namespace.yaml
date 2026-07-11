@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: universal-video-downloader
+  labels:
+    app.kubernetes.io/name: universal-video-downloader
+    app.kubernetes.io/component: backend
