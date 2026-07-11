@@ -21,20 +21,21 @@ jobs:
           username: ${{ secrets.IAM_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          script_stop: true
           command_timeout: 30m
           script: |
             set -euo pipefail
 
-            # Step 0 (Force Swap): create 2GB swap to prevent OOM on t3.micro
+            echo "==> Шаг 0: Железно включаем память"
             sudo fallocate -l 2G /swapfile || true
             sudo chmod 600 /swapfile || true
             sudo mkswap /swapfile || true
             sudo swapon /swapfile || true
 
-            # Step 0.5 (Fix dpkg): clean up interrupted package installations
+            echo "==> Шаг 0.5: Очистка прерванных установок"
             sudo dpkg --configure -a || true
 
-            # Step 1 (Install): install git and docker without prompts
+            echo "==> Шаг 1: Устанавливаем нужные программы (git и docker)"
             sudo apt-get update -y
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git docker.io
 
@@ -42,7 +43,7 @@ jobs:
             IMAGE_NAME="universal-video-downloader:latest"
             REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
 
-            # Step 2 (Sync Code): clone or hard-reset to latest master
+            echo "==> Шаг 2: Синхронизируем код"
             if [ -d "${APP_DIR}/.git" ]; then
               sudo chown -R ubuntu:ubuntu "${APP_DIR}"
               cd "${APP_DIR}"
@@ -56,13 +57,13 @@ jobs:
               cd "${APP_DIR}"
             fi
 
-            # Step 3 (Build): build Docker image on the EC2 host
+            echo "==> Шаг 3: Собираем Docker образ"
             sudo docker build -t "${IMAGE_NAME}" .
 
-            # Step 4 (k3s Import): load image into the k3s container runtime
+            echo "==> Шаг 4: Загружаем образ в k3s"
             sudo docker save "${IMAGE_NAME}" | sudo k3s ctr images import -
 
-            # Step 5 (Secrets): namespace + preserve existing SECRET_KEY if present
+            echo "==> Шаг 5: Подготовка ключей"
             sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
             EXISTING_SECRET_KEY=""
@@ -78,9 +79,11 @@ jobs:
               --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
-            # Step 6 (Apply): deploy all Kubernetes manifests
+            echo "==> Шаг 6: Запускаем настройки k8s"
             sudo k3s kubectl apply -f k8s/
 
-            # Step 7 (Rollout): restart deployment and wait for readiness
-            sudo k3s kubectl rollout restart deployment/uvd-backend -n universal-video-downloader
+            echo "==> Шаг 7: Обновляем сайт"
+            sudo k3s kubectl rollout restart deployment/uvd-backend -n universal-video-downloader || true
             sudo k3s kubectl rollout status deployment/uvd-backend -n universal-video-downloader --timeout=120s
+
+            echo "==> Успешно завершено!"
