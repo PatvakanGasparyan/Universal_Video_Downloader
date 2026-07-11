@@ -2,22 +2,15 @@ name: Deploy
 
 on:
   push:
-    branches: [master]
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+    branches:
+      - master
 
 jobs:
   deploy:
-    name: Deploy to AWS EC2 (k3s)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy over SSH
+      - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,21 +21,20 @@ jobs:
           username: ${{ secrets.IAM_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
-          script_stop: true
           command_timeout: 30m
           script: |
             set -euo pipefail
 
-            echo "==> Шаг 0: Железно включаем память"
+            # Step 0 (Force Swap): create 2GB swap to prevent OOM on t3.micro
             sudo fallocate -l 2G /swapfile || true
             sudo chmod 600 /swapfile || true
             sudo mkswap /swapfile || true
             sudo swapon /swapfile || true
 
-            echo "==> Шаг 0.5: Очистка прерванных установок"
+            # Step 0.5 (Fix dpkg): clean up interrupted package installations
             sudo dpkg --configure -a || true
 
-            echo "==> Шаг 1: Устанавливаем нужные программы (git и docker)"
+            # Step 1 (Install): install git and docker without prompts
             sudo apt-get update -y
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git docker.io
 
@@ -50,7 +42,7 @@ jobs:
             IMAGE_NAME="universal-video-downloader:latest"
             REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
 
-            echo "==> Шаг 2: Синхронизируем код"
+            # Step 2 (Sync Code): clone or hard-reset to latest master
             if [ -d "${APP_DIR}/.git" ]; then
               sudo chown -R ubuntu:ubuntu "${APP_DIR}"
               cd "${APP_DIR}"
@@ -64,13 +56,13 @@ jobs:
               cd "${APP_DIR}"
             fi
 
-            echo "==> Шаг 3: Собираем Docker образ"
+            # Step 3 (Build): build Docker image on the EC2 host
             sudo docker build -t "${IMAGE_NAME}" .
 
-            echo "==> Шаг 4: Загружаем образ в k3s"
+            # Step 4 (k3s Import): load image into the k3s container runtime
             sudo docker save "${IMAGE_NAME}" | sudo k3s ctr images import -
 
-            echo "==> Шаг 5: Подготовка ключей"
+            # Step 5 (Secrets): namespace + preserve existing SECRET_KEY if present
             sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
             EXISTING_SECRET_KEY=""
@@ -86,11 +78,9 @@ jobs:
               --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
-            echo "==> Шаг 6: Запускаем настройки k8s"
+            # Step 6 (Apply): deploy all Kubernetes manifests
             sudo k3s kubectl apply -f k8s/
 
-            echo "==> Шаг 7: Обновляем сайт"
-            sudo k3s kubectl rollout restart deployment/uvd-backend -n universal-video-downloader || true
+            # Step 7 (Rollout): restart deployment and wait for readiness
+            sudo k3s kubectl rollout restart deployment/uvd-backend -n universal-video-downloader
             sudo k3s kubectl rollout status deployment/uvd-backend -n universal-video-downloader --timeout=120s
-
-            echo "==> Успешно завершено!"
