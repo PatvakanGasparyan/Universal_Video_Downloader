@@ -33,16 +33,11 @@ jobs:
           script: |
             set -euo pipefail
 
-            echo "==> Шаг 0: Автоматически добавляем память (Swap)"
-            if [ ! -f /swapfile ]; then
-              sudo fallocate -l 2G /swapfile
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-              sudo swapon /swapfile
-              echo "Запасная память на 2GB успешно создана!"
-            else
-              echo "Запасная память уже существует."
-            fi
+            echo "==> Шаг 0: Железно включаем память"
+            sudo fallocate -l 2G /swapfile || true
+            sudo chmod 600 /swapfile || true
+            sudo mkswap /swapfile || true
+            sudo swapon /swapfile || true
 
             echo "==> Шаг 0.5: Очистка прерванных установок"
             sudo dpkg --configure -a || true
