@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2 (k3s)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+
+            APP_DIR="/opt/universal-video-downloader"
+            IMAGE_NAME="universal-video-downloader:latest"
+            REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+            echo "==> Sync application code"
+            if [ -d "${APP_DIR}/.git" ]; then
+              cd "${APP_DIR}"
+              git remote set-url origin "${REPO_URL}"
+              git fetch origin master
+              git reset --hard origin/master
+            else
+              sudo mkdir -p "${APP_DIR}"
+              sudo chown -R "${USER}:${USER}" "${APP_DIR}"
+              git clone --branch master --depth 1 "${REPO_URL}" "${APP_DIR}"
+              cd "${APP_DIR}"
+            fi
+
+            echo "==> Build Docker image"
+            docker build -t "${IMAGE_NAME}" .
+
+            echo "==> Import image into k3s container runtime"
+            docker save "${IMAGE_NAME}" | sudo k3s ctr images import -
+
+            echo "==> Sync Kubernetes secrets"
+            EXISTING_SECRET_KEY=""
+            if sudo k3s kubectl get secret uvd-secrets -n universal-video-downloader >/dev/null 2>&1; then
+              EXISTING_SECRET_KEY="$(sudo k3s kubectl get secret uvd-secrets \
+                -n universal-video-downloader \
+                -o jsonpath='{.data.SECRET_KEY}' | base64 -d 2>/dev/null || true)"
+            fi
+            SECRET_KEY_VALUE="${EXISTING_SECRET_KEY:-change-me-in-production}"
+
+            sudo k3s kubectl create secret generic uvd-secrets \
+              --namespace=universal-video-downloader \
+              --from-literal=SECRET_KEY="${SECRET_KEY_VALUE}" \
+              --from-literal=AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+              --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+              --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+
+            echo "==> Apply Kubernetes manifests"
+            sudo k3s kubectl apply -f k8s/
+
+            echo "==> Roll out updated image"
+            sudo k3s kubectl rollout restart deployment/uvd-backend \
+              -n universal-video-downloader
+            sudo k3s kubectl rollout status deployment/uvd-backend \
+              -n universal-video-downloader \
+              --timeout=300s
+
+            echo "==> Deployment complete"
