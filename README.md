@@ -100,20 +100,57 @@ docker compose --profile proxy up -d
 
 ## Environment Variables
 
+Copy `.env.example` to `.env` and adjust. Every variable below is read by the app on startup.
+
+### Application
+
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DEBUG` | `false` | Enable debug mode / verbose errors |
+| `SECRET_KEY` | `change-me-in-production` | Application secret (change in production!) |
 | `BACKEND_PORT` | `8000` | FastAPI server port |
-| `FRONTEND_PORT` | `3000` | Reference port (frontend served by backend) |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./data/app.db` | Database connection |
-| `DOWNLOADS_DIR` | `./backend/downloads` | Download output directory |
+| `FRONTEND_PORT` | `3000` | Reference port (frontend is served by the backend) |
+| `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:8000"]` | Allowed origins (JSON array) |
+| `RATE_LIMIT` | `30/minute` | Per-client API rate limit |
+
+### Database & storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite+aiosqlite:///./data/app.db` | Async database connection string |
+| `DOWNLOADS_DIR` | `./backend/downloads` | Local download output directory |
+| `TEMP_DIR` | `./backend/downloads/temp` | Temp directory for in-progress files |
+
+### Downloads & media
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `MAX_CONCURRENT_DOWNLOADS` | `3` | Max parallel downloads |
 | `FFMPEG_LOCATION` | _(system PATH)_ | Custom FFmpeg binary path |
-| `COOKIES_FILE` | `./config/cookies.txt` | Netscape cookies.txt for YouTube/site auth |
-| `SECRET_KEY` | `change-me-in-production` | Application secret |
+| `COOKIES_FILE` | `./data/cookies.txt` | Netscape `cookies.txt` for YouTube/site auth |
+| `METADATA_CACHE_TTL` | `3600` | Metadata cache lifetime (seconds) |
+
+### Logging & optional services
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `LOG_LEVEL` | `INFO` | Logging level |
-| `RATE_LIMIT` | `30/minute` | API rate limit |
-| `REDIS_URL` | _(none)_ | Optional Redis for queue |
-| `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:8000"]` | Allowed origins |
+| `LOG_DIR` | `./logs` | Log output directory |
+| `REDIS_URL` | _(none)_ | Optional Redis for the download queue |
+
+### AWS S3 (production storage)
+
+Enable to upload finished downloads to S3 instead of (or in addition to) local disk.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `S3_ENABLED` | `false` | Set `true` to upload downloads to S3 |
+| `AWS_REGION` | `us-east-1` | AWS region of the bucket |
+| `AWS_S3_BUCKET` | _(empty)_ | Target S3 bucket name |
+| `AWS_ACCESS_KEY_ID` | _(empty)_ | AWS access key (omit when using an IAM role) |
+| `AWS_SECRET_ACCESS_KEY` | _(empty)_ | AWS secret key (omit when using an IAM role) |
+| `S3_PREFIX` | `downloads` | Key prefix for uploaded objects |
+| `S3_DELETE_LOCAL_AFTER_UPLOAD` | `true` | Delete the local file after a successful upload |
 
 ## API Documentation
 
@@ -219,46 +256,44 @@ If YouTube returns **"Sign in to confirm you're not a bot"**, provide browser co
 2. Install a cookies export extension, for example **"Get cookies.txt LOCALLY"** (Chrome/Firefox).
 3. Export cookies for `youtube.com` in **Netscape** format (`.txt`).
 
-### 2. Place the file in your project
+### 2. Provide the cookies to the app
 
-Save the exported file here (project root):
+**Option A — Settings page (recommended, works on the deployed server):**
+
+Open **Settings → Cookies**, then upload the exported `cookies.txt` file or paste its
+contents and click **Save**. The file is written to `./data/cookies.txt`, which is a
+persistent volume in Docker/Kubernetes, so it survives restarts.
+
+**Option B — Place the file manually (local dev):**
 
 ```
 universal-video-downloader/
-└── config/
+└── data/
     └── cookies.txt    ← your exported file
 ```
 
-This path is the default (`COOKIES_FILE=./config/cookies.txt` in `.env`).
+This path is the default (`COOKIES_FILE=./data/cookies.txt` in `.env`). A legacy
+`./config/cookies.txt` path is also checked for backward compatibility.
 
-**Security:** `config/cookies.txt` is gitignored — it contains your login session. Never commit or share it.
+**Security:** `cookies.txt` is gitignored — it contains your login session. Never commit or share it.
 
-### 3. Configure (optional)
-
-**Option A — Environment variable** (`.env`):
-
-```env
-COOKIES_FILE=./config/cookies.txt
-```
-
-**Option B — Settings page** (http://localhost:8000/settings):
-
-Set **Cookies file** to `./config/cookies.txt` or an absolute path. UI settings override the env default when set.
-
-### 4. Restart the server
+### 3. Restart the server (only when placing the file manually)
 
 ```bash
 python scripts/run_dev.py
 ```
 
-The backend passes the file to yt-dlp via the `cookiefile` option for both metadata (`/api/info`) and downloads.
+The backend passes the file to yt-dlp via the `cookiefile` option for both metadata (`/api/info`) and downloads. When you upload cookies via the Settings page, the metadata cache is cleared automatically so new cookies take effect immediately.
 
 See also: [config/README.md](config/README.md)
 
 ## Troubleshooting
 
 ### YouTube "Sign in to confirm you're not a bot"
-Export fresh cookies while logged into YouTube, save to `config/cookies.txt`, and restart the app. Update yt-dlp: `pip install -U yt-dlp`. Cookies expire — re-export if errors return.
+YouTube now blocks most anonymous requests. Export fresh cookies while logged into YouTube, upload them via **Settings → Cookies** (or save to `data/cookies.txt`), then try again. Cookies expire — re-export if errors return. Also keep yt-dlp current: `pip install -U yt-dlp`.
+
+### Rutube "Unable to download options JSON: HTTP Error 404"
+Rutube periodically changes its API and only recent yt-dlp releases support it. This is fixed by the `yt-dlp>=2025.6.9` pin. If you still hit it, update yt-dlp: `pip install -U yt-dlp` (or rebuild the Docker image so the latest yt-dlp is installed).
 
 ### FFmpeg not found
 Set `FFMPEG_LOCATION` in `.env` to the full path of your FFmpeg binary.

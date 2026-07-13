@@ -78,10 +78,12 @@ class YtDlpService:
                 "YouTube may block requests — upload cookies in Settings"
             )
 
-        # Prefer mobile/TV clients — less aggressive bot checks than web alone
+        # Prefer TV/mobile clients — they trigger YouTube's bot check far less
+        # often than the plain "web" client. With cookies present, yt-dlp still
+        # falls back to the best available client automatically.
         opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["android", "ios", "tv_embedded", "web"],
+                "player_client": ["tv", "mweb", "web_safari", "android", "ios"],
             }
         }
 
