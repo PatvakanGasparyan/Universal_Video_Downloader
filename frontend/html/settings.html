@@ -20,7 +20,7 @@
       <a href="/history" class="nav-link" x-text="t('nav_history')"></a>
       <a href="/settings" class="nav-link active" x-text="t('nav_settings')"></a>
       <select x-model="currentLang" @change="changeLang(currentLang)"
-              class="glass px-3 py-1.5 rounded-lg text-sm bg-transparent" aria-label="Language">
+              class="lang-select text-sm" aria-label="Language">
         <option value="en">English</option>
         <option value="ru">Русский</option>
         <option value="hy">Հայերեն</option>
@@ -33,13 +33,13 @@
     <form @submit.prevent="save()" class="glass-card p-6 space-y-5">
       <div>
         <label class="block text-sm mb-1" x-text="t('default_quality')"></label>
-        <select x-model="settings.default_quality" class="url-input w-full">
+        <select x-model="settings.default_quality" class="lang-select w-full">
           <template x-for="q in qualities" :key="q"><option :value="q" x-text="q.toUpperCase()"></option></template>
         </select>
       </div>
       <div>
         <label class="block text-sm mb-1" x-text="t('default_format')"></label>
-        <select x-model="settings.default_format" class="url-input w-full">
+        <select x-model="settings.default_format" class="lang-select w-full">
           <template x-for="f in formats" :key="f"><option :value="f" x-text="f.toUpperCase()"></option></template>
         </select>
       </div>
@@ -50,7 +50,7 @@
       <div>
         <label class="block text-sm mb-1" x-text="t('preferred_language')"></label>
         <select x-model="settings.preferred_language"
-                @change="changeLang(settings.preferred_language)" class="url-input w-full">
+                @change="changeLang(settings.preferred_language)" class="lang-select w-full">
           <option value="en">English</option>
           <option value="ru">Русский</option>
           <option value="hy">Հայերեն</option>
@@ -58,7 +58,7 @@
       </div>
       <div>
         <label class="block text-sm mb-1" x-text="t('theme')"></label>
-        <select x-model="settings.theme" @change="Theme.apply(settings.theme)" class="url-input w-full">
+        <select x-model="settings.theme" @change="Theme.apply(settings.theme)" class="lang-select w-full">
           <option value="dark" x-text="t('theme_dark')"></option>
           <option value="light" x-text="t('theme_light')"></option>
         </select>
@@ -79,12 +79,31 @@
         <label class="block text-sm mb-1" x-text="t('ffmpeg_path')"></label>
         <input type="text" x-model="settings.ffmpeg_location" class="url-input w-full" placeholder="ffmpeg">
       </div>
-      <div>
-        <label class="block text-sm mb-1" x-text="t('cookies_file')"></label>
-        <input type="text" x-model="settings.cookies_file" class="url-input w-full"
-               placeholder="./config/cookies.txt">
-        <p class="text-xs text-[var(--text-secondary)] mt-1" x-text="t('cookies_file_hint')"></p>
+
+      <div class="cookies-box space-y-3">
+        <div>
+          <label class="block text-sm mb-1 font-medium" x-text="t('cookies_file')"></label>
+          <p class="text-xs text-[var(--text-secondary)] mb-2" x-text="t('cookies_file_hint')"></p>
+          <p class="cookies-status" :class="{ ok: cookiesExists }" x-text="cookiesStatusLabel"></p>
+        </div>
+        <div>
+          <label class="block text-xs mb-1 text-[var(--text-secondary)]" x-text="t('cookies_upload')"></label>
+          <input type="file" accept=".txt,text/plain"
+                 class="block w-full text-sm text-[var(--text-secondary)]"
+                 @change="onCookiesFile($event)">
+        </div>
+        <div>
+          <label class="block text-xs mb-1 text-[var(--text-secondary)]" x-text="t('cookies_paste')"></label>
+          <textarea x-model="cookiesPaste" :placeholder="t('cookies_paste_placeholder')"></textarea>
+        </div>
+        <button type="button" class="btn-secondary w-full" @click="saveCookies()" :disabled="cookiesSaving">
+          <span x-text="cookiesSaving ? '...' : t('cookies_save')"></span>
+        </button>
+        <p x-show="cookiesMessage" class="text-sm text-center"
+           :class="cookiesError ? 'text-red-400' : 'text-green-400'"
+           x-text="cookiesMessage"></p>
       </div>
+
       <button type="submit" class="btn-primary w-full" x-text="t('save_settings')">Save Settings</button>
       <p x-show="saved" class="text-green-400 text-sm text-center" x-text="t('settings_saved')"></p>
     </form>
@@ -101,10 +120,65 @@
         saved: false,
         qualities: ['best','8k','4k','1440p','1080p','720p','480p','360p'],
         formats: ['mp4','mkv','webm','mp3','aac','m4a'],
+        cookiesExists: false,
+        cookiesPath: './config/cookies.txt',
+        cookiesSize: 0,
+        cookiesPaste: '',
+        cookiesFile: null,
+        cookiesSaving: false,
+        cookiesMessage: '',
+        cookiesError: false,
+        get cookiesStatusLabel() {
+          if (this.cookiesExists) {
+            return `${this.t('cookies_status_ok')} (${this.cookiesSize} bytes) — ${this.cookiesPath}`;
+          }
+          return this.t('cookies_status_missing');
+        },
         async init() {
           await this.initI18n();
           this.settings = await API.getSettings();
           if (this.settings.theme) Theme.apply(this.settings.theme);
+          await this.refreshCookiesStatus();
+        },
+        async refreshCookiesStatus() {
+          try {
+            const status = await API.getCookiesStatus();
+            this.cookiesExists = !!status.exists;
+            this.cookiesPath = status.path || './config/cookies.txt';
+            this.cookiesSize = status.size || 0;
+          } catch {
+            this.cookiesExists = false;
+          }
+        },
+        onCookiesFile(event) {
+          const file = event.target.files?.[0] || null;
+          this.cookiesFile = file;
+        },
+        async saveCookies() {
+          this.cookiesMessage = '';
+          this.cookiesError = false;
+          if (!this.cookiesFile && !this.cookiesPaste.trim()) {
+            this.cookiesError = true;
+            this.cookiesMessage = this.t('cookies_empty');
+            return;
+          }
+          this.cookiesSaving = true;
+          try {
+            await API.uploadCookies({
+              file: this.cookiesFile,
+              content: this.cookiesPaste.trim(),
+            });
+            this.settings.cookies_file = './config/cookies.txt';
+            this.cookiesPaste = '';
+            this.cookiesFile = null;
+            this.cookiesMessage = this.t('cookies_saved');
+            await this.refreshCookiesStatus();
+          } catch (e) {
+            this.cookiesError = true;
+            this.cookiesMessage = e.message || this.t('cookies_save_failed');
+          } finally {
+            this.cookiesSaving = false;
+          }
         },
         async save() {
           this.settings = await API.saveSettings(this.settings);

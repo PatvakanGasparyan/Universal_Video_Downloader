@@ -18,6 +18,9 @@ async def test_get_formats(client):
     assert "video_qualities" in data
     assert "1080p" in data["video_qualities"]
     assert "mp4" in data["video_formats"]
+    assert isinstance(data["platforms"], list)
+    assert data["platforms"][0]["name"] == "YouTube"
+    assert "url" in data["platforms"][0]
 
 
 @pytest.mark.asyncio

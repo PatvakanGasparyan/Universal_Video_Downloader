@@ -91,6 +91,25 @@ const API = {
     return this.request('/api/formats');
   },
 
+  getCookiesStatus() {
+    return this.request('/api/settings/cookies');
+  },
+
+  async uploadCookies({ file = null, content = '' } = {}) {
+    const form = new FormData();
+    if (file) form.append('file', file);
+    if (content) form.append('content', content);
+    const res = await fetch(`${this.base}/api/settings/cookies`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(formatApiError(err.detail, res.statusText || 'Upload failed'));
+    }
+    return res.json();
+  },
+
   connectWebSocket(downloadId, onMessage) {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const qs = downloadId ? `?download_id=${downloadId}` : '';

@@ -34,7 +34,7 @@
       <a href="/history" class="nav-link" x-text="t('nav_history')">History</a>
       <a href="/settings" class="nav-link" x-text="t('nav_settings')">Settings</a>
       <select x-model="currentLang" @change="changeLang(currentLang)"
-              class="glass px-3 py-1.5 rounded-lg text-sm bg-transparent" aria-label="Language">
+              class="lang-select text-sm" aria-label="Language">
         <option value="en">English</option>
         <option value="ru">Русский</option>
         <option value="hy">Հայերեն</option>
@@ -95,7 +95,7 @@
           <div class="flex flex-wrap gap-3 mb-4">
             <div>
               <label class="text-xs text-[var(--text-secondary)] block mb-1" x-text="t('quality_label')">Quality</label>
-              <select x-model="selectedQuality" class="glass px-3 py-2 rounded-lg bg-transparent text-sm">
+              <select x-model="selectedQuality" class="lang-select text-sm">
                 <template x-for="q in qualities" :key="q">
                   <option :value="q" x-text="q.toUpperCase()"></option>
                 </template>
@@ -103,7 +103,7 @@
             </div>
             <div>
               <label class="text-xs text-[var(--text-secondary)] block mb-1" x-text="t('format_label')">Format</label>
-              <select x-model="selectedFormat" class="glass px-3 py-2 rounded-lg bg-transparent text-sm">
+              <select x-model="selectedFormat" class="lang-select text-sm">
                 <template x-for="f in formats" :key="f">
                   <option :value="f" x-text="f.toUpperCase()"></option>
                 </template>
@@ -158,11 +158,15 @@
       <h2 class="text-2xl font-bold mb-2" x-text="t('supported_platforms')">Supported Platforms</h2>
       <p class="text-sm text-[var(--text-secondary)] mb-6" x-text="t('platforms_note')"></p>
       <div class="flex flex-wrap justify-center gap-3">
-        <template x-for="p in platforms" :key="p">
-          <span class="platform-badge">
-            <i class="fab" :class="platformIcon(p)"></i>
-            <span x-text="p"></span>
-          </span>
+        <template x-for="p in platforms" :key="p.name">
+          <a class="platform-badge"
+             :href="p.url"
+             target="_blank"
+             rel="noopener noreferrer"
+             :aria-label="p.name">
+            <span class="platform-icon" x-html="platformIconHtml(p)"></span>
+            <span x-text="p.name"></span>
+          </a>
         </template>
       </div>
     </section>

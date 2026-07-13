@@ -173,11 +173,113 @@ body {
   border-radius: 999px;
   font-size: 0.875rem;
   transition: all 0.2s ease;
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.platform-badge:hover {
+a.platform-badge:hover {
   background: rgba(255,255,255,0.15);
   transform: scale(1.05);
+  color: var(--text-primary);
+}
+
+.platform-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.platform-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: currentColor;
+}
+
+.platform-icon i {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* Language / theme selects — dark-readable options */
+.lang-select,
+select.lang-select,
+select.url-input,
+select.glass {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #0f172a;
+  color: #f8fafc;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%94a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  cursor: pointer;
+}
+
+.lang-select:hover,
+select.lang-select:hover,
+select.url-input:hover,
+select.glass:hover {
+  border-color: var(--accent);
+}
+
+.lang-select option,
+select.lang-select option,
+select.url-input option,
+select.glass option {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+[data-theme="light"] .lang-select,
+[data-theme="light"] select.lang-select,
+[data-theme="light"] select.url-input,
+[data-theme="light"] select.glass {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="light"] .lang-select option,
+[data-theme="light"] select.lang-select option,
+[data-theme="light"] select.url-input option,
+[data-theme="light"] select.glass option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.cookies-box {
+  border: 1px dashed var(--glass-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--glass-bg);
+}
+
+.cookies-box textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.cookies-status {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.cookies-status.ok {
+  color: #4ade80;
 }
 
 .nav-link {

@@ -25,7 +25,13 @@ function downloaderApp() {
       document.title = this.t('app_title');
       try {
         const data = await API.getFormats();
-        this.platforms = data.platforms || [];
+        const list = data.platforms || [];
+        // Support both legacy string[] and {name,url,icon}[]
+        this.platforms = list.map((p) => (
+          typeof p === 'string'
+            ? { name: p, url: '#', icon: p.toLowerCase() }
+            : p
+        ));
       } catch {}
       document.addEventListener('paste', (e) => this.handlePaste(e));
     },
@@ -122,19 +128,32 @@ function downloaderApp() {
       }
     },
 
-    platformIcon(name) {
-      const icons = {
-        'YouTube': 'fa-youtube text-red-500',
-        'Facebook': 'fa-facebook text-blue-500',
-        'Instagram': 'fa-instagram text-pink-500',
-        'TikTok': 'fa-tiktok',
-        'X (Twitter)': 'fa-x-twitter',
-        'Twitch': 'fa-twitch text-purple-500',
-        'Vimeo': 'fa-vimeo text-blue-400',
-        'SoundCloud': 'fa-soundcloud text-orange-500',
-        'Reddit': 'fa-reddit text-orange-600',
+    platformIconHtml(platform) {
+      const key = (platform.icon || platform.name || '').toLowerCase();
+      const fa = {
+        youtube: '<i class="fab fa-youtube" style="color:#ef4444"></i>',
+        facebook: '<i class="fab fa-facebook" style="color:#3b82f6"></i>',
+        instagram: '<i class="fab fa-instagram" style="color:#ec4899"></i>',
+        tiktok: '<i class="fab fa-tiktok"></i>',
+        x: '<i class="fab fa-x-twitter"></i>',
+        twitter: '<i class="fab fa-x-twitter"></i>',
+        twitch: '<i class="fab fa-twitch" style="color:#a855f7"></i>',
+        vimeo: '<i class="fab fa-vimeo-v" style="color:#60a5fa"></i>',
+        soundcloud: '<i class="fab fa-soundcloud" style="color:#f97316"></i>',
+        reddit: '<i class="fab fa-reddit" style="color:#ea580c"></i>',
+        vk: '<i class="fab fa-vk" style="color:#3b82f6"></i>',
+        threads: '<i class="fab fa-threads"></i>',
+        bilibili: '<i class="fab fa-bilibili" style="color:#00a1d6"></i>',
       };
-      return icons[name] || 'fa-globe';
+      if (fa[key]) return fa[key];
+
+      // Custom SVGs for brands missing reliable FA glyphs
+      const svg = {
+        rutube: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff4e45" d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm6 3.5v9l7-4.5-7-4.5z"/></svg>`,
+        dailymotion: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00aaff" d="M3 3h8.5c3.6 0 6.5 2.6 6.5 6.1 0 2.7-1.7 5-4.2 5.8L21 21h-3.3l-6.3-5.6H9.5V21H3V3zm6.5 3.2v5.8H11c1.9 0 3.2-1.2 3.2-2.9S12.9 6.2 11 6.2H9.5z"/></svg>`,
+      };
+      if (svg[key]) return svg[key];
+      return '<i class="fas fa-globe"></i>';
     },
 
     formatBytes, formatDuration, formatEta, formatSpeed,

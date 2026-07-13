@@ -9,9 +9,20 @@ VIDEO_FORMATS = ["mp4", "mkv", "webm", "avi", "mov"]
 AUDIO_FORMATS = ["mp3", "aac", "m4a", "flac", "wav", "ogg"]
 
 PLATFORMS = [
-    "YouTube", "Rutube", "Vimeo", "Twitch", "TikTok", "X (Twitter)",
-    "Facebook", "Instagram", "Dailymotion", "Bilibili", "SoundCloud",
-    "Reddit", "VK", "Threads",
+    {"name": "YouTube", "url": "https://www.youtube.com", "icon": "youtube"},
+    {"name": "Rutube", "url": "https://rutube.ru", "icon": "rutube"},
+    {"name": "Vimeo", "url": "https://vimeo.com", "icon": "vimeo"},
+    {"name": "Twitch", "url": "https://www.twitch.tv", "icon": "twitch"},
+    {"name": "TikTok", "url": "https://www.tiktok.com", "icon": "tiktok"},
+    {"name": "X (Twitter)", "url": "https://x.com", "icon": "x"},
+    {"name": "Facebook", "url": "https://www.facebook.com", "icon": "facebook"},
+    {"name": "Instagram", "url": "https://www.instagram.com", "icon": "instagram"},
+    {"name": "Dailymotion", "url": "https://www.dailymotion.com", "icon": "dailymotion"},
+    {"name": "Bilibili", "url": "https://www.bilibili.com", "icon": "bilibili"},
+    {"name": "SoundCloud", "url": "https://soundcloud.com", "icon": "soundcloud"},
+    {"name": "Reddit", "url": "https://www.reddit.com", "icon": "reddit"},
+    {"name": "VK", "url": "https://vk.com", "icon": "vk"},
+    {"name": "Threads", "url": "https://www.threads.net", "icon": "threads"},
 ]
 
 
