@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions / Questions
+    url: https://github.com/PatvakanGasparyan/Universal_Video_Downloader/discussions
+    about: Ask questions and share ideas with the community.
+  - name: 🍪 Cookie / YouTube auth help
+    url: https://github.com/PatvakanGasparyan/Universal_Video_Downloader/blob/master/docs/COOKIES.md
+    about: Fix "Sign in to confirm you're not a bot" before filing a bug.
+  - name: 🩺 Troubleshooting guide
+    url: https://github.com/PatvakanGasparyan/Universal_Video_Downloader/blob/master/docs/TROUBLESHOOTING.md
+    about: Common problems and fixes.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/PatvakanGasparyan/Universal_Video_Downloader/security/advisories/new
+    about: Please report vulnerabilities privately, not as public issues.

@@ -1,390 +1,721 @@
-# Universal Video Downloader
+<div align="center">
 
-A modern, production-quality, open-source web application for downloading videos from hundreds of supported websites via [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+# 🎬 Universal Video Downloader
 
-![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+### Download videos in the best quality from hundreds of websites — through a beautiful, self-hosted web app.
 
-## Screenshots
+_A production-grade, open-source video downloader powered by **FastAPI** + **yt-dlp**, with a modern glassmorphism UI, live progress over WebSockets, an automatic cookie-authentication pipeline, and one-command Docker / AWS deployment._
 
-> Placeholder — run the app locally and add screenshots to `docs/screenshots/`
+<br/>
 
-| Main Page | Download Progress | History |
-|-----------|-------------------|---------|
-| _Coming soon_ | _Coming soon_ | _Coming soon_ |
+[![Release](https://img.shields.io/github/v/release/PatvakanGasparyan/Universal_Video_Downloader?include_prereleases&sort=semver&color=6366f1&label=release)](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/PatvakanGasparyan/Universal_Video_Downloader/ci.yml?branch=master&label=CI&logo=github)](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/PatvakanGasparyan/Universal_Video_Downloader?color=informational)](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/commits)
+[![Stars](https://img.shields.io/github/stars/PatvakanGasparyan/Universal_Video_Downloader?style=social)](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/stargazers)
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![yt-dlp](https://img.shields.io/badge/yt--dlp-2025.6.9+-ff0000?logo=youtube&logoColor=white)](https://github.com/yt-dlp/yt-dlp)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Alpine.js](https://img.shields.io/badge/Alpine.js-8BC0D0?logo=alpinedotjs&logoColor=black)](https://alpinejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![AWS](https://img.shields.io/badge/AWS-EC2_%7C_S3-FF9900?logo=amazonaws&logoColor=white)](docs/AWS.md)
 
-- **Universal support** — Every website yt-dlp legally supports (YouTube, TikTok, Instagram, Vimeo, Twitch, and hundreds more)
-- **Modern UI** — Glassmorphism design, animated gradients, dark/light mode, fully responsive
-- **Format selection** — Video (8K–360p) and audio (MP3, AAC, M4A, FLAC, WAV, OGG) in MP4, MKV, WEBM, AVI, MOV
-- **Live progress** — WebSocket-powered real-time download progress with speed, ETA, and stage tracking
-- **Download queue** — Pause, resume, cancel, and priority support with configurable concurrency
-- **History** — Search, favorites, delete, and re-download from history
-- **Multi-language** — English, Русский, Հայերեն with instant switching
-- **Settings** — Default quality, format, folder, theme, FFmpeg path, and more
-- **Security** — Rate limiting, input validation, path sanitization, security headers
-- **Docker ready** — One-command deployment with Docker Compose
+</div>
 
-## Default Ports
+---
 
-| Service | Port | Environment Variable |
-|---------|------|---------------------|
-| Backend (FastAPI) | 8000 | `BACKEND_PORT` |
-| Frontend (served by backend) | 8000 | `FRONTEND_PORT` (reference) |
-| WebSocket | 8000/ws/download | — |
-| Redis (optional) | 6379 | `REDIS_URL` |
-| Nginx (optional) | 80 / 443 | — |
+## 📑 Table of Contents
 
-## Requirements
+- [🌐 Live Application](#-live-application)
+- [✨ Overview](#-overview)
+- [🚀 Features](#-features)
+- [🖼️ Screenshots](#️-screenshots)
+- [🏗️ Architecture](#️-architecture)
+- [📁 Project Structure](#-project-structure)
+- [⚡ Quick Start](#-quick-start)
+- [🛠️ Installation](#️-installation)
+- [🐳 Running with Docker](#-running-with-docker)
+- [☁️ AWS Deployment](#️-aws-deployment)
+- [🍪 Cookies (YouTube Authentication)](#-cookies-youtube-authentication)
+- [🎞️ FFmpeg](#️-ffmpeg)
+- [⬇️ yt-dlp](#️-yt-dlp)
+- [⚙️ Configuration](#️-configuration)
+- [🔌 API](#-api)
+- [🚦 Error Codes](#-error-codes)
+- [🧰 Technologies](#-technologies)
+- [📈 Performance](#-performance)
+- [🔒 Security](#-security)
+- [❓ FAQ](#-faq)
+- [🩺 Troubleshooting](#-troubleshooting)
+- [🗺️ Roadmap](#️-roadmap)
+- [📝 Changelog](#-changelog)
+- [🤝 Contributing](#-contributing)
+- [💬 Support](#-support)
+- [📚 Documentation Index](#-documentation-index)
+- [📄 License](#-license)
 
-- **Python** 3.13+
-- **FFmpeg** — Required for format merging and conversion
-- **yt-dlp** — Installed via pip (included in requirements.txt)
+---
 
-### Installing FFmpeg
+## 🌐 Live Application
 
-**Windows (winget):**
-```powershell
-winget install Gyan.FFmpeg
+Once deployed, the app is available on port **8000**:
+
+| Page | URL |
+|------|-----|
+| 🏠 **Application** | `http://SERVER_IP:8000` |
+| ⚙️ **Settings** | `http://SERVER_IP:8000/settings` |
+| 🕒 **History** | `http://SERVER_IP:8000/history` |
+| 📘 **API (Swagger)** | `http://SERVER_IP:8000/docs` |
+| 📕 **API (ReDoc)** | `http://SERVER_IP:8000/redoc` |
+| ❤️ **Health check** | `http://SERVER_IP:8000/api/health` |
+
+> [!IMPORTANT]
+> Replace **`SERVER_IP`** with your server's **public IPv4 address**.
+> - On **AWS EC2**, this is the instance's *Public IPv4 address* (or an attached **Elastic IP**). Find it in the EC2 console → *Instances* → *Details*.
+> - Running **locally**, use [`http://localhost:8000`](http://localhost:8000).
+> - Make sure inbound TCP **port 8000** is open in your firewall / EC2 **Security Group**. See [docs/AWS.md](docs/AWS.md).
+
+---
+
+## ✨ Overview
+
+**Universal Video Downloader** is a self-hosted web application that lets you fetch videos and audio from **hundreds of websites** that [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports — YouTube, TikTok, Instagram, Vimeo, Twitch, Rutube, and many more — all from a clean, responsive browser UI.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**👤 Who is it for?**
+
+- Self-hosters who want their own private downloader
+- Developers who need a clean FastAPI + yt-dlp reference project
+- Anyone who wants a nice UI instead of the command line
+- DevOps engineers showcasing Docker / Terraform / k3s / AWS
+
+</td>
+<td width="50%" valign="top">
+
+**🎯 Main use cases**
+
+- Archiving your own content and public videos
+- Extracting audio (MP3/FLAC/…) from videos
+- Batch downloads via a live queue
+- Running a personal downloader on a cheap VPS/EC2
+
+</td>
+</tr>
+</table>
+
+**🏆 Why this project over a bare `yt-dlp` command?**
+
+| | This project | Raw yt-dlp CLI | Random online sites |
+|---|:---:|:---:|:---:|
+| Beautiful web UI | ✅ | ❌ | ⚠️ ads/malware |
+| Live progress (WebSocket) | ✅ | ⚠️ terminal | ❌ |
+| Automatic cookie fallback | ✅ | ⚠️ manual flags | ❌ |
+| Structured error messages | ✅ | ❌ raw tracebacks | ❌ |
+| Download history & favorites | ✅ | ❌ | ❌ |
+| Self-hosted & private | ✅ | ✅ | ❌ |
+| One-command Docker deploy | ✅ | ❌ | — |
+
+---
+
+## 🚀 Features
+
+<div align="center">
+
+### Supported platforms (and hundreds more via yt-dlp)
+
+</div>
+
+| | | | |
+|---|---|---|---|
+| ✅ YouTube | ✅ Rutube | ✅ Vimeo | ✅ Twitch |
+| ✅ TikTok | ✅ X (Twitter) | ✅ Facebook | ✅ Instagram |
+| ✅ Dailymotion | ✅ Bilibili | ✅ SoundCloud | ✅ Reddit |
+| ✅ VK | ✅ Threads | ✅ …and [1000+ sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) | ✅ |
+
+<div align="center">
+
+### Capabilities
+
+</div>
+
+| Feature | Description |
+|---------|-------------|
+| 🎥 **Any quality** | `best`, 8K, 4K, 1440p, 1080p, 720p, 480p, 360p |
+| 📦 **Video formats** | MP4, MKV, WEBM, AVI, MOV |
+| 🎵 **Audio extraction** | MP3, AAC, M4A, FLAC, WAV, OGG |
+| 🍪 **Automatic cookies** | Anonymous → browser cookies → `cookies.txt` fallback chain |
+| 📡 **Live progress** | Real-time speed, ETA, %, and stage over WebSockets |
+| 📋 **Download queue** | Concurrent downloads with pause / resume / cancel / priority |
+| 🕒 **History** | Search, favorite, delete, re-download |
+| 🌍 **i18n** | English 🇬🇧 · Русский 🇷🇺 · Հայերեն 🇦🇲 — instant switching |
+| 🌗 **Themes** | Dark / light mode, glassmorphism design |
+| 🧩 **Structured errors** | Machine-readable `{error, message, solution}` envelopes |
+| ☁️ **S3 storage** | Optional upload of finished files to AWS S3 |
+| 🐳 **Docker-ready** | `docker compose up -d` and you're live |
+| 🧪 **Tested** | 100+ tests, ruff-clean, CI on every push |
+
+---
+
+## 🖼️ Screenshots
+
+> [!NOTE]
+> Add your own screenshots to `docs/images/`. Placeholders are referenced below.
+
+<table>
+<tr>
+<td width="50%"><b>🏠 Home</b><br/><img src="docs/images/home.png" alt="Home page" /></td>
+<td width="50%"><b>⚙️ Settings</b><br/><img src="docs/images/settings.png" alt="Settings page" /></td>
+</tr>
+<tr>
+<td width="50%"><b>⬇️ Download in progress</b><br/><img src="docs/images/download.png" alt="Download progress" /></td>
+<td width="50%"><b>🕒 History</b><br/><img src="docs/images/history.png" alt="History page" /></td>
+</tr>
+<tr>
+<td width="50%"><b>📋 Queue</b><br/><img src="docs/images/queue.png" alt="Queue" /></td>
+<td width="50%"><b>🚦 Structured error</b><br/><img src="docs/images/error.png" alt="Error example" /></td>
+</tr>
+</table>
+
+---
+
+## 🏗️ Architecture
+
+A high-level view. **Full diagrams** (system, request flow, Docker, AWS, sequence, download pipeline, cookie flow, error handling, and more) live in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+```mermaid
+flowchart LR
+    User([👤 User]) --> Browser[🌐 Browser]
+    Browser -->|HTML / CSS / Alpine.js| Frontend[🎨 Frontend]
+    Frontend -->|REST + WebSocket| API[⚡ FastAPI Backend]
+    API --> YTDLP[⬇️ yt-dlp]
+    YTDLP --> FFmpeg[🎞️ FFmpeg]
+    YTDLP -->|cookies fallback| Auth{🍪 Auth?}
+    API --> DB[(🗄️ SQLite)]
+    FFmpeg --> Storage[📁 Downloads]
+    Storage -->|optional| S3[(☁️ AWS S3)]
+    Storage --> User
 ```
 
-**macOS:**
-```bash
-brew install ffmpeg
+<details>
+<summary><b>📽️ Request sequence (metadata → download → progress)</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant F as Frontend
+    participant A as FastAPI
+    participant Y as yt-dlp
+    participant W as WebSocket
+
+    U->>F: Paste URL + click Analyze
+    F->>A: POST /api/info
+    A->>Y: extract_info (cookie fallback chain)
+    Y-->>A: metadata / structured error
+    A-->>F: VideoMetadata JSON
+    U->>F: Choose quality + Download
+    F->>A: POST /api/download
+    A-->>F: { download_id }
+    F->>W: connect /ws/download?download_id=…
+    loop While downloading
+        Y-->>A: progress hook
+        A-->>W: DownloadProgress JSON
+        W-->>F: live % / speed / ETA
+    end
+    A-->>W: status = completed
 ```
 
-**Ubuntu/Debian:**
-```bash
-sudo apt update && sudo apt install ffmpeg
+</details>
+
+---
+
+## 📁 Project Structure
+
+```text
+universal-video-downloader/
+├── backend/                  # FastAPI application
+│   ├── api/                  # Routes, deps, middleware
+│   │   └── routes/           # info, download, history, settings, formats
+│   ├── services/             # yt-dlp, download queue, cookies, exceptions, S3
+│   ├── models/               # Pydantic schemas + SQLAlchemy ORM
+│   ├── database/             # Async session, migrations
+│   ├── config/               # Settings + structured logging
+│   ├── localization/         # Backend i18n loader
+│   ├── websocket/            # WebSocket handlers
+│   └── main.py               # App entry point + exception handlers
+├── frontend/                 # Static web UI (no build step)
+│   ├── html/                 # index, history, settings
+│   ├── css/                  # Glassmorphism styles
+│   ├── js/                   # Alpine.js app, API client, i18n
+│   ├── localization/         # en.json, ru.json, hy.json
+│   └── assets/               # Icons / images
+├── terraform/                # AWS IaC: EC2, S3, IAM, VPC
+├── k8s/                      # k3s manifests: Deployment, Service, ConfigMap
+├── docker/                   # Nginx reverse-proxy config
+├── docs/                     # 📚 Full documentation (see index below)
+├── scripts/                  # Dev/utility scripts (run_dev.py, …)
+├── tests/                    # unit / api / integration / frontend
+├── config/                   # Runtime config (cookies.txt location)
+├── data/                     # SQLite DB + persistent cookies (gitignored)
+├── Dockerfile                # Multi-stage build (python:3.13-slim)
+├── docker-compose.yml        # app + optional redis + nginx profiles
+├── requirements.txt          # Dev + runtime dependencies
+├── requirements-prod.txt     # Runtime-only (smaller image)
+└── README.md
 ```
 
-## Quick Start
+---
 
-### 1. Clone and set up
+## ⚡ Quick Start
 
 ```bash
-git clone https://github.com/your-org/universal-video-downloader.git
-cd universal-video-downloader
-python -m venv .venv
+# 1. Clone
+git clone https://github.com/PatvakanGasparyan/Universal_Video_Downloader.git
+cd Universal_Video_Downloader
 
-# Windows
-.venv\Scripts\activate
-
-# macOS/Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
+# 2. Run with Docker (easiest)
 cp .env.example .env
+docker compose up -d
+
+# 3. Open the app
+#    → http://localhost:8000
 ```
 
-### 2. Run the development server
+> [!TIP]
+> Prefer a native install? Jump to [🛠️ Installation](#️-installation). Full step-by-step is in **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+---
+
+## 🛠️ Installation
+
+**Requirements:** Python **3.13+**, **FFmpeg**, and (bundled via pip) **yt-dlp**.
+
+<details>
+<summary><b>🐧 Linux — Ubuntu / Debian</b></summary>
 
 ```bash
+sudo apt update
+sudo apt install -y python3.13 python3.13-venv ffmpeg git
+
+git clone https://github.com/PatvakanGasparyan/Universal_Video_Downloader.git
+cd Universal_Video_Downloader
+
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
 python scripts/run_dev.py
 ```
 
-Open [http://localhost:8000](http://localhost:8000) in your browser.
+</details>
 
-### 3. Docker deployment
+<details>
+<summary><b>🪟 Windows (PowerShell)</b></summary>
 
-```bash
-docker compose up -d
+```powershell
+winget install Python.Python.3.13
+winget install Gyan.FFmpeg
+winget install Git.Git
+
+git clone https://github.com/PatvakanGasparyan/Universal_Video_Downloader.git
+cd Universal_Video_Downloader
+
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+Copy-Item .env.example .env
+python scripts/run_dev.py
 ```
 
-With Nginx reverse proxy:
+</details>
+
+<details>
+<summary><b>🍎 macOS</b></summary>
+
+```bash
+brew install python@3.13 ffmpeg git
+
+git clone https://github.com/PatvakanGasparyan/Universal_Video_Downloader.git
+cd Universal_Video_Downloader
+
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+python scripts/run_dev.py
+```
+
+</details>
+
+Then open **[http://localhost:8000](http://localhost:8000)**. 📖 More detail: **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+---
+
+## 🐳 Running with Docker
+
+```bash
+# Build + start in the background
+docker compose up -d --build
+
+# View logs
+docker compose logs -f app
+
+# Stop
+docker compose down
+```
+
+With the **Nginx** reverse proxy (ports 80/443):
+
 ```bash
 docker compose --profile proxy up -d
 ```
 
-## Environment Variables
+With the optional **Redis** profile:
 
-Copy `.env.example` to `.env` and adjust. Every variable below is read by the app on startup.
+```bash
+docker compose --profile queue up -d
+```
 
-### Application
+> Volumes persist your database, cookies, and downloads across restarts. Full reference: **[docs/DOCKER.md](docs/DOCKER.md)**.
+
+---
+
+## ☁️ AWS Deployment
+
+This repo ships **Infrastructure as Code** (Terraform) and **k3s** manifests, plus a GitHub Actions pipeline that builds the image on GHCR and deploys to EC2.
+
+```bash
+# Provision EC2 + S3 + IAM + VPC
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # edit values
+terraform init
+terraform apply
+
+# Terraform prints the EC2 public IP — open http://<EC2_IP>:8000
+```
+
+> [!WARNING]
+> Open inbound **TCP 8000** (app) and **22** (SSH) in the EC2 **Security Group**, and prefer an **Elastic IP** so the address survives restarts. Complete walkthrough (Security Groups, Elastic IP, domain, HTTPS, Nginx, SSL): **[docs/AWS.md](docs/AWS.md)** and **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+---
+
+## 🍪 Cookies (YouTube Authentication)
+
+YouTube increasingly returns **“Sign in to confirm you’re not a bot.”** The app solves this with an **automatic fallback chain** and an easy cookie upload.
+
+```mermaid
+flowchart LR
+    A[Anonymous] -->|blocked?| B[Browser cookies<br/>chrome → chromium → edge → firefox]
+    B -->|blocked?| C[cookies.txt]
+    C -->|still blocked?| D[🚫 youtube_auth_required<br/>friendly error + solution]
+```
+
+**Get cookies in 5 steps** using the **Get cookies.txt LOCALLY** browser extension:
+
+1. 🧩 Install **“Get cookies.txt LOCALLY”** (Chrome / Edge / Firefox / Brave / Chromium).
+2. 🔑 Log in to [YouTube](https://www.youtube.com) in that browser.
+3. 💾 Click the extension → **Export** cookies for `youtube.com` (Netscape format).
+4. ⬆️ In the app go to **Settings → Cookies**, upload or paste the `cookies.txt`, click **Save**.
+5. ✅ Done — cookies live in `./data/cookies.txt` (persistent) and are used automatically.
+
+> [!CAUTION]
+> `cookies.txt` contains your login session — treat it like a password. It is **gitignored** and never committed. Full guide + troubleshooting + per-browser steps: **[docs/COOKIES.md](docs/COOKIES.md)**.
+
+---
+
+## 🎞️ FFmpeg
+
+FFmpeg is required for merging video+audio and format/audio conversion.
+
+| OS | Command |
+|----|---------|
+| 🐧 Ubuntu/Debian | `sudo apt install -y ffmpeg` |
+| 🪟 Windows | `winget install Gyan.FFmpeg` |
+| 🍎 macOS | `brew install ffmpeg` |
+| 🐳 Docker | Pre-installed in the image ✔️ |
+
+If FFmpeg isn’t on `PATH`, set `FFMPEG_LOCATION` in `.env` to the binary path.
+
+---
+
+## ⬇️ yt-dlp
+
+`yt-dlp` is installed automatically via `requirements.txt` (pinned to **≥ 2025.6.9**). To update to the latest extractors:
+
+```bash
+pip install -U yt-dlp
+# or rebuild the Docker image to pull the newest release
+docker compose build --no-cache app
+```
+
+> Keeping yt-dlp current is the #1 fix when a specific site suddenly breaks.
+
+---
+
+## ⚙️ Configuration
+
+All settings come from environment variables (`.env`). The most common ones:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEBUG` | `false` | Enable debug mode / verbose errors |
-| `SECRET_KEY` | `change-me-in-production` | Application secret (change in production!) |
-| `BACKEND_PORT` | `8000` | FastAPI server port |
-| `FRONTEND_PORT` | `3000` | Reference port (frontend is served by the backend) |
-| `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:8000"]` | Allowed origins (JSON array) |
-| `RATE_LIMIT` | `30/minute` | Per-client API rate limit |
+| `BACKEND_PORT` | `8000` | HTTP port |
+| `SECRET_KEY` | `change-me-in-production` | App secret (**change it!**) |
+| `MAX_CONCURRENT_DOWNLOADS` | `3` | Parallel downloads |
+| `COOKIES_FILE` | `./data/cookies.txt` | Cookie file path |
+| `COOKIES_FROM_BROWSER` | `true` | Try browser cookies (set **false** on servers) |
+| `FFMPEG_LOCATION` | _(PATH)_ | Custom FFmpeg path |
+| `S3_ENABLED` | `false` | Upload finished files to S3 |
+| `RATE_LIMIT` | `30/minute` | API rate limit |
 
-### Database & storage
+📖 **Every** variable, JSON, and YAML field is documented in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite+aiosqlite:///./data/app.db` | Async database connection string |
-| `DOWNLOADS_DIR` | `./backend/downloads` | Local download output directory |
-| `TEMP_DIR` | `./backend/downloads/temp` | Temp directory for in-progress files |
+---
 
-### Downloads & media
+## 🔌 API
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAX_CONCURRENT_DOWNLOADS` | `3` | Max parallel downloads |
-| `FFMPEG_LOCATION` | _(system PATH)_ | Custom FFmpeg binary path |
-| `COOKIES_FILE` | `./data/cookies.txt` | Netscape `cookies.txt` for YouTube/site auth |
-| `METADATA_CACHE_TTL` | `3600` | Metadata cache lifetime (seconds) |
-
-### Download pipeline & reliability
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `COOKIES_FROM_BROWSER` | `true` | Try browser cookies before `cookies.txt`. **Set `false` on headless servers** (Docker/EC2/k8s). |
-| `COOKIE_BROWSER_ORDER` | `["chrome","chromium","edge","firefox"]` | Browsers to try, in order, for `--cookies-from-browser` |
-| `YTDLP_SOCKET_TIMEOUT` | `30` | Per-connection socket timeout (seconds) |
-| `YTDLP_RETRIES` | `3` | yt-dlp HTTP/fragment retries |
-| `EXTRACT_TIMEOUT` | `90` | Wall-clock timeout for metadata extraction (seconds) |
-| `TRANSIENT_RETRY_ATTEMPTS` | `2` | Extra retries for transient network/rate-limit errors |
-
-### Logging & optional services
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `LOG_DIR` | `./logs` | Log output directory |
-| `REDIS_URL` | _(none)_ | Optional Redis for the download queue |
-
-### AWS S3 (production storage)
-
-Enable to upload finished downloads to S3 instead of (or in addition to) local disk.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `S3_ENABLED` | `false` | Set `true` to upload downloads to S3 |
-| `AWS_REGION` | `us-east-1` | AWS region of the bucket |
-| `AWS_S3_BUCKET` | _(empty)_ | Target S3 bucket name |
-| `AWS_ACCESS_KEY_ID` | _(empty)_ | AWS access key (omit when using an IAM role) |
-| `AWS_SECRET_ACCESS_KEY` | _(empty)_ | AWS secret key (omit when using an IAM role) |
-| `S3_PREFIX` | `downloads` | Key prefix for uploaded objects |
-| `S3_DELETE_LOCAL_AFTER_UPLOAD` | `true` | Delete the local file after a successful upload |
-
-## API Documentation
-
-Interactive docs available at [http://localhost:8000/docs](http://localhost:8000/docs) when running.
-
-### REST Endpoints
+Interactive docs: **`/docs`** (Swagger) and **`/redoc`** (ReDoc).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/info` | Extract video metadata |
 | `POST` | `/api/download` | Queue a download |
-| `GET` | `/api/status/{id}` | Get download status |
-| `POST` | `/api/download/{id}/pause` | Pause download |
-| `POST` | `/api/download/{id}/resume` | Resume download |
-| `POST` | `/api/download/{id}/cancel` | Cancel download |
-| `GET` | `/api/history` | List download history |
+| `GET` | `/api/status/{id}` | Download status |
+| `POST` | `/api/download/{id}/pause` | Pause |
+| `POST` | `/api/download/{id}/resume` | Resume |
+| `POST` | `/api/download/{id}/cancel` | Cancel |
+| `GET` | `/api/history` | List history |
 | `DELETE` | `/api/history/{id}` | Delete history entry |
 | `POST` | `/api/history/{id}/favorite` | Toggle favorite |
-| `GET` | `/api/settings` | Get user settings |
+| `GET` | `/api/settings` | Get settings |
 | `POST` | `/api/settings` | Update settings |
-| `GET` | `/api/formats` | List supported formats/platforms |
+| `GET` / `POST` | `/api/settings/cookies` | Cookie status / upload |
+| `GET` | `/api/formats` | Supported formats & platforms |
 | `GET` | `/api/health` | Health check |
+| `WS` | `/ws/download?download_id=…` | Live progress stream |
 
-### WebSocket
-
-```
-ws://localhost:8000/ws/download?download_id={id}
-```
-
-Streams live `DownloadProgress` JSON events.
-
-## Project Structure
-
-```
-project/
-├── backend/
-│   ├── api/            # REST route handlers
-│   ├── services/       # Business logic (yt-dlp, queue, security)
-│   ├── models/         # Pydantic schemas & SQLAlchemy models
-│   ├── database/       # Async DB session
-│   ├── localization/   # Backend i18n
-│   ├── downloads/      # Download output (gitignored)
-│   ├── websocket/      # WebSocket handlers
-│   ├── config/         # Settings & logging
-│   └── main.py         # Application entry point
-├── frontend/
-│   ├── html/           # Page templates
-│   ├── css/            # Custom styles
-│   ├── js/             # Alpine.js application
-│   ├── assets/         # Icons, images
-│   └── localization/   # Frontend i18n (en, ru, hy)
-├── docs/               # Documentation
-├── scripts/            # Utility scripts
-├── tests/              # Unit, integration, API tests
-├── docker/             # Nginx config
-├── .github/            # CI/CD workflows
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
-
-## Development
-
-### Running tests
+<details>
+<summary><b>Example: fetch metadata</b></summary>
 
 ```bash
-pytest --cov=backend --cov-report=term-missing -v
+curl -X POST http://SERVER_IP:8000/api/info \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
 ```
 
-### Linting
-
-```bash
-ruff check backend tests
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "title": "Example video",
+  "channel": "Example channel",
+  "duration": 213,
+  "formats": [{ "id": "video-1080p-mp4", "label": "1080p MP4", "quality": "1080p", "format": "mp4" }]
+}
 ```
 
-### Type checking
+</details>
 
-```bash
-mypy backend
-```
+Full request/response/error examples: **[docs/API.md](docs/API.md)**.
 
-## Localization Guide
+---
 
-UI strings live in JSON files:
+## 🚦 Error Codes
 
-- `frontend/localization/en.json` — English
-- `frontend/localization/ru.json` — Russian
-- `frontend/localization/hy.json` — Armenian
-
-To add a language:
-1. Copy `en.json` to `{lang}.json`
-2. Translate all values
-3. Add the language to the selector in HTML templates
-4. Update `backend/localization/loader.py` → `supported_languages()`
-
-## Download Pipeline & Error Handling
-
-The backend wraps yt-dlp in a resilient pipeline (`backend/services/ytdlp_service.py`).
-
-### Automatic authentication fallback
-
-When a site blocks anonymous access (e.g. YouTube's bot check), the pipeline
-transparently retries with escalating authentication before giving up:
-
-1. **Anonymous** — no cookies.
-2. **Browser cookies** — `--cookies-from-browser` in order: `chrome → chromium → edge → firefox` (configurable via `COOKIE_BROWSER_ORDER`; skipped when `COOKIES_FROM_BROWSER=false`).
-3. **`cookies.txt`** — the uploaded/configured cookie file.
-4. **Friendly error** — if every strategy still hits an auth wall, a structured `youtube_auth_required` error is returned.
-
-Only authentication/rate-limit failures advance the chain. Errors that cookies
-can't fix (video unavailable, unsupported URL, geo-block) fail fast. Transient
-network/rate-limit errors are retried with backoff (`TRANSIENT_RETRY_ATTEMPTS`).
-
-### Structured JSON errors
-
-Raw yt-dlp exceptions are **never** exposed. Every failure is translated into a
-stable envelope (see `backend/services/exceptions.py`):
+Every failure returns a structured envelope — **raw yt-dlp tracebacks are never exposed**:
 
 ```json
 {
   "success": false,
   "error": "youtube_auth_required",
   "message": "Authentication required.",
-  "solution": "Upload cookies.txt in Settings (or sign in to the site in your browser and export fresh cookies), then try again."
+  "solution": "Upload cookies.txt in Settings, then try again."
 }
 ```
 
-Error codes: `youtube_auth_required`, `auth_required`, `video_unavailable`,
-`geo_restricted`, `rate_limited`, `unsupported_url`, `network_error`,
-`invalid_url`, `cancelled`, `download_failed`, `internal_error`. The HTTP status
-reflects the category (401 for auth, 404 for unavailable, 429 for rate limits,
-etc.). The same `error`/`message`/`solution` fields are also streamed over the
-download WebSocket so the UI can show an actionable hint.
+| Code | HTTP | Meaning |
+|------|:----:|---------|
+| `youtube_auth_required` / `auth_required` | 401 | Site needs cookies / sign-in |
+| `video_unavailable` | 404 | Private, removed, or 404 |
+| `geo_restricted` | 451 | Blocked in server region |
+| `rate_limited` | 429 | Too many requests |
+| `unsupported_url` | 400 | Not a supported site |
+| `invalid_url` | 400 | Malformed URL |
+| `network_error` | 502 | Timeout / connection issue |
+| `cancelled` | 409 | Download cancelled |
+| `download_failed` | 422 | Generic failure |
+| `internal_error` | 500 | Unexpected server error |
 
-### Other reliability features
+Full reference with causes & fixes: **[docs/ERRORS.md](docs/ERRORS.md)**.
 
-- **Duplicate prevention** — identical in-flight requests (same URL/quality/format) are coalesced to one download.
-- **Cancellation & cleanup** — cancelling removes partial `.part`/`.ytdl` artefacts; failures clean up too.
-- **Graceful shutdown** — in-flight downloads are signalled and drained on shutdown.
-- **Thread-safe progress** — yt-dlp progress hooks (worker thread) broadcast back to the event loop safely.
+---
 
-## YouTube Cookie Authentication
+## 🧰 Technologies
 
-If YouTube returns **"Sign in to confirm you're not a bot"**, provide browser cookies to yt-dlp.
+| Layer | Tech |
+|-------|------|
+| 🐍 Language | Python 3.13+ |
+| ⚡ Backend | FastAPI, Uvicorn, Pydantic v2, SQLAlchemy (async), aiosqlite |
+| ⬇️ Engine | yt-dlp + FFmpeg |
+| 🎨 Frontend | HTML5, CSS3, Tailwind-style CSS, Alpine.js, Font Awesome |
+| 🗄️ Database | SQLite (async) |
+| ☁️ Storage | Local FS + optional AWS S3 (boto3) |
+| 🐳 Containers | Docker, Docker Compose (multi-stage build) |
+| ☸️ Orchestration | k3s (Kubernetes) |
+| 🏗️ IaC | Terraform (EC2, S3, IAM, VPC) |
+| 🔁 CI/CD | GitHub Actions + GHCR |
+| 🌐 Proxy | Nginx (optional) |
 
-### 1. Export cookies from your browser
+---
 
-1. Log in to [YouTube](https://www.youtube.com) in Chrome, Firefox, or Edge.
-2. Install a cookies export extension, for example **"Get cookies.txt LOCALLY"** (Chrome/Firefox).
-3. Export cookies for `youtube.com` in **Netscape** format (`.txt`).
+## 📈 Performance
 
-### 2. Provide the cookies to the app
+- **Asynchronous everything** — non-blocking I/O with `asyncio`; yt-dlp runs in a thread pool so the event loop stays responsive.
+- **Metadata caching** — repeated lookups for the same URL are served from cache (`METADATA_CACHE_TTL`).
+- **Concurrent queue** — a semaphore caps parallelism (`MAX_CONCURRENT_DOWNLOADS`) to protect CPU/RAM.
+- **Duplicate coalescing** — identical in-flight requests reuse one job.
+- **GZip + keep-alive** — compressed responses and connection reuse.
+- **Small image** — multi-stage `python:3.13-slim` build with runtime-only deps.
 
-**Option A — Settings page (recommended, works on the deployed server):**
+Tuning tips: **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** · **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
 
-Open **Settings → Cookies**, then upload the exported `cookies.txt` file or paste its
-contents and click **Save**. The file is written to `./data/cookies.txt`, which is a
-persistent volume in Docker/Kubernetes, so it survives restarts.
+---
 
-**Option B — Place the file manually (local dev):**
+## 🔒 Security
 
-```
-universal-video-downloader/
-└── data/
-    └── cookies.txt    ← your exported file
-```
+- 🍪 **Cookies** are stored locally in `./data/cookies.txt`, gitignored, and never logged or committed.
+- 🔑 **Secrets** via environment variables / k8s Secrets — never hard-coded.
+- 🛡️ **Hardening** — input validation, URL sanitization, path-traversal protection, rate limiting, security headers, CORS.
+- 🐳 **Docker** — minimal base image, no build tools in the final layer, isolated volumes.
+- 🚫 **No raw errors** — structured envelopes prevent internal detail leakage.
 
-This path is the default (`COOKIES_FILE=./data/cookies.txt` in `.env`). A legacy
-`./config/cookies.txt` path is also checked for backward compatibility.
+Report vulnerabilities and read the full policy in **[SECURITY.md](SECURITY.md)**.
 
-**Security:** `cookies.txt` is gitignored — it contains your login session. Never commit or share it.
+---
 
-### 3. Restart the server (only when placing the file manually)
+## ❓ FAQ
+
+<details>
+<summary><b>Is this legal?</b></summary>
+
+The tool uses yt-dlp for personal use. Respect copyright and each platform’s Terms of Service in your jurisdiction. You are responsible for how you use it.
+</details>
+
+<details>
+<summary><b>YouTube says “Sign in to confirm you’re not a bot” — what do I do?</b></summary>
+
+Upload a fresh `cookies.txt` in **Settings → Cookies**. On servers set `COOKIES_FROM_BROWSER=false` and rely on the uploaded file. See **[docs/COOKIES.md](docs/COOKIES.md)**.
+</details>
+
+<details>
+<summary><b>Why does Rutube fail with “HTTP Error 404”?</b></summary>
+
+Outdated yt-dlp. Update it: `pip install -U yt-dlp` (or rebuild the image). This repo pins `yt-dlp>=2025.6.9`.
+</details>
+
+<details>
+<summary><b>Can I download playlists / audio only?</b></summary>
+
+Audio-only extraction (MP3, FLAC, …) is fully supported. Playlist support is on the [roadmap](docs/ROADMAP.md).
+</details>
+
+40+ more answers: **[docs/FAQ.md](docs/FAQ.md)**.
+
+---
+
+## 🩺 Troubleshooting
+
+| Symptom | Likely fix |
+|---------|-----------|
+| YouTube bot block | Upload cookies (**[docs/COOKIES.md](docs/COOKIES.md)**) |
+| A site broke overnight | `pip install -U yt-dlp` / rebuild image |
+| `FFmpeg not found` | Install FFmpeg or set `FFMPEG_LOCATION` |
+| Can’t reach `:8000` on AWS | Open port 8000 in the Security Group |
+| WebSocket won’t connect | Use the same host/port; check proxy upgrades |
+| Permission errors | Ensure `DOWNLOADS_DIR` / `data/` are writable |
+
+Detailed guide (Docker, permissions, disk space, firewalls, browser auth): **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Cookie fallback pipeline + structured errors
+- [x] Docker / Terraform / k3s / GitHub Actions
+- [ ] Playlist & channel downloads
+- [ ] Subtitle download & conversion (SRT/VTT)
+- [ ] Optional user authentication (admin/user roles)
+- [ ] Download scheduler & bandwidth limiter
+
+Full roadmap: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
+---
+
+## 📝 Changelog
+
+See **[CHANGELOG.md](CHANGELOG.md)** — this project follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/).
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** and the **[Code of Conduct](CODE_OF_CONDUCT.md)**.
 
 ```bash
-python scripts/run_dev.py
+# Fork → branch → change → test → PR
+ruff check backend tests
+pytest --cov=backend
 ```
 
-The backend passes the file to yt-dlp via the `cookiefile` option for both metadata (`/api/info`) and downloads. When you upload cookies via the Settings page, the metadata cache is cleared automatically so new cookies take effect immediately.
+---
 
-See also: [config/README.md](config/README.md)
+## 💬 Support
 
-## Troubleshooting
+- 🐛 **Bug?** Open a [Bug Report](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/issues/new?template=bug_report.yml)
+- 💡 **Idea?** Open a [Feature Request](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/issues/new?template=feature_request.yml)
+- 💬 **Question?** Start a [Discussion](https://github.com/PatvakanGasparyan/Universal_Video_Downloader/discussions)
 
-### YouTube "Sign in to confirm you're not a bot"
-YouTube now blocks most anonymous requests. Export fresh cookies while logged into YouTube, upload them via **Settings → Cookies** (or save to `data/cookies.txt`), then try again. Cookies expire — re-export if errors return. Also keep yt-dlp current: `pip install -U yt-dlp`.
+---
 
-### Rutube "Unable to download options JSON: HTTP Error 404"
-Rutube periodically changes its API and only recent yt-dlp releases support it. This is fixed by the `yt-dlp>=2025.6.9` pin. If you still hit it, update yt-dlp: `pip install -U yt-dlp` (or rebuild the Docker image so the latest yt-dlp is installed).
+## 📚 Documentation Index
 
-### FFmpeg not found
-Set `FFMPEG_LOCATION` in `.env` to the full path of your FFmpeg binary.
+| Doc | What's inside |
+|-----|---------------|
+| 📥 [INSTALL.md](docs/INSTALL.md) | Step-by-step install for every OS |
+| 🚀 [DEPLOYMENT.md](docs/DEPLOYMENT.md) | VPS, reverse proxy, Nginx/Apache, Cloudflare |
+| 🐳 [DOCKER.md](docs/DOCKER.md) | Dockerfile, compose, volumes, networks |
+| ☁️ [AWS.md](docs/AWS.md) | EC2, Security Groups, Elastic IP, HTTPS |
+| 🏗️ [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 14 Mermaid diagrams |
+| 🔌 [API.md](docs/API.md) | Every endpoint with examples |
+| ⚙️ [CONFIGURATION.md](docs/CONFIGURATION.md) | Every setting explained |
+| 🍪 [COOKIES.md](docs/COOKIES.md) | Full cookie guide per browser |
+| 🚦 [ERRORS.md](docs/ERRORS.md) | Every error code |
+| ❓ [FAQ.md](docs/FAQ.md) | 40+ questions |
+| 🩺 [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Fix common problems |
+| 🗺️ [ROADMAP.md](docs/ROADMAP.md) | Planned features |
+| 🔒 [SECURITY.md](SECURITY.md) | Security policy |
+| 🤝 [CONTRIBUTING.md](CONTRIBUTING.md) | Dev workflow |
 
-### Download fails for a specific site
-Update yt-dlp: `pip install -U yt-dlp`. Some sites require cookies or authentication.
+---
 
-### WebSocket not connecting
-Ensure you're accessing the app via the same host/port. Check that no proxy is blocking WebSocket upgrades.
+## 📄 License
 
-### Permission errors on downloads
-Verify the `DOWNLOADS_DIR` path exists and is writable.
+Released under the **[MIT License](LICENSE)** © 2026 Universal Video Downloader Contributors.
 
-## FAQ
+<div align="center">
 
-**Q: Is this legal?**
-A: This tool uses yt-dlp for personal use. Respect copyright laws and platform Terms of Service in your jurisdiction.
+**⚠️ Disclaimer:** This software is for personal and educational use. Respect copyright laws and the Terms of Service of every website you download from.
 
-**Q: Can I download playlists?**
-A: Playlist support is planned as a nice-to-have feature. The architecture supports extending this.
+<br/>
 
-**Q: Does it work on mobile?**
-A: Yes — the UI is fully responsive with touch-friendly controls.
+_If this project helped you, please consider giving it a ⭐ — it really helps!_
 
-## Contributing
+Made with ❤️ using [FastAPI](https://fastapi.tiangolo.com/) and [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgments
-
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — Download engine
-- [FastAPI](https://fastapi.tiangolo.com/) — Web framework
-- [Alpine.js](https://alpinejs.dev/) — Frontend reactivity
+</div>
