@@ -26,6 +26,14 @@ data:
   LOG_DIR: "./logs"
   COOKIES_FILE: "./data/cookies.txt"
 
+  # Auth fallback: no browser exists in the container, so rely on cookies.txt
+  # (upload it via the Settings page) rather than --cookies-from-browser.
+  COOKIES_FROM_BROWSER: "false"
+  YTDLP_SOCKET_TIMEOUT: "30"
+  YTDLP_RETRIES: "3"
+  EXTRACT_TIMEOUT: "90"
+  TRANSIENT_RETRY_ATTEMPTS: "2"
+
   # CORS — replace with your public URL after Terraform gives you the EC2 IP
   CORS_ORIGINS: '["http://localhost:8000"]'
 

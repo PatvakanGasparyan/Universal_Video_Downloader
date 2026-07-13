@@ -69,8 +69,17 @@ function downloaderApp() {
 
     formatError(e) {
       const msg = e?.message || this.t('error_fetch_info');
-      if (/not a bot|cookies-from-browser|--cookies/i.test(msg)) {
-        return `${this.t('cookies_required_hint')}\n\n${msg}`;
+      const code = e?.code || '';
+      const solution = e?.solution || '';
+
+      // Auth/cookie problems get a tailored, actionable hint.
+      if (code === 'youtube_auth_required' || code === 'auth_required'
+          || /not a bot|cookies-from-browser|--cookies/i.test(msg)) {
+        const hint = this.t('cookies_required_hint');
+        return solution ? `${hint}\n\n${solution}` : `${hint}\n\n${msg}`;
+      }
+      if (solution) {
+        return `${msg}\n${solution}`;
       }
       return msg;
     },
@@ -99,7 +108,13 @@ function downloaderApp() {
           }
           if (data.status === 'failed' || data.status === 'cancelled') {
             this.downloading = false;
-            if (data.message) this.error = this.formatError({ message: data.message });
+            if (data.message || data.solution) {
+              this.error = this.formatError({
+                message: data.message,
+                code: data.error,
+                solution: data.solution,
+              });
+            }
           }
         });
       } catch (e) {

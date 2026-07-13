@@ -15,12 +15,23 @@ from sqlalchemy import select
 from backend.config.settings import get_settings
 from backend.database.session import async_session_factory
 from backend.models.schemas import DownloadProgress, DownloadRecord, DownloadStatus
+from backend.services.exceptions import (
+    DownloadCancelledError,
+    DownloaderError,
+    classify_ytdlp_error,
+)
 from backend.services.history_service import settings_service
 from backend.services.s3_service import s3_storage
 from backend.services.security import safe_join
 from backend.services.ytdlp_service import ytdlp_service
 
 logger = logging.getLogger("downloads")
+
+_TERMINAL_STATUSES = {
+    DownloadStatus.COMPLETED,
+    DownloadStatus.FAILED,
+    DownloadStatus.CANCELLED,
+}
 
 
 @dataclass(order=True)
@@ -61,16 +72,25 @@ class DownloadManager:
         self.settings = get_settings()
         self._queue: asyncio.PriorityQueue[QueueItem] | None = None
         self._active: dict[str, ActiveDownload] = {}
+        self._signatures: dict[str, str] = {}
+        self._tasks: set[asyncio.Task[Any]] = set()
         self._listeners: dict[str, set[Any]] = {}
         self._global_listeners: set[Any] = set()
         self._worker_task: asyncio.Task[Any] | None = None
         self._semaphore: asyncio.Semaphore | None = None
+        self._lock: asyncio.Lock | None = None
         self._running = False
 
     def _ensure_async_primitives(self) -> None:
         """Create asyncio primitives inside the running event loop."""
         if self._queue is None:
             self._queue = asyncio.PriorityQueue()
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+
+    @staticmethod
+    def _signature(url: str, quality: str, fmt: str, audio_only: bool) -> str:
+        return f"{url}|{quality}|{fmt}|{int(audio_only)}"
 
     async def start(self) -> None:
         if self._running:
@@ -83,13 +103,26 @@ class DownloadManager:
         logger.info("Download manager started with max_concurrent=%s", max_dl)
 
     async def stop(self) -> None:
+        """Gracefully stop: signal cancellation, drain in-flight tasks."""
         self._running = False
+
+        # Ask active downloads to stop, then let their tasks unwind.
+        for active in list(self._active.values()):
+            if active.cancel_event and active.progress.status not in _TERMINAL_STATUSES:
+                active.cancel_event.set()
+
         if self._worker_task:
             self._worker_task.cancel()
             try:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
+
+        pending = [t for t in self._tasks if not t.done()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        self._tasks.clear()
+        logger.info("Download manager stopped")
 
     def subscribe(self, ws: Any, download_id: str | None = None) -> None:
         if download_id:
@@ -124,7 +157,36 @@ class DownloadManager:
         audio_only: bool = False,
         priority: int = 0,
     ) -> str:
-        download_id = str(uuid.uuid4())[:12]
+        self._ensure_async_primitives()
+        assert self._lock is not None and self._queue is not None
+
+        signature = self._signature(url, quality, fmt, audio_only)
+
+        async with self._lock:
+            # Duplicate prevention: reuse the id of an identical in-flight job.
+            existing_id = self._signatures.get(signature)
+            if existing_id and existing_id in self._active:
+                existing = self._active[existing_id]
+                if existing.progress.status not in _TERMINAL_STATUSES:
+                    logger.info("Duplicate download coalesced to %s: %s", existing_id, url)
+                    return existing_id
+
+            download_id = str(uuid.uuid4())[:12]
+            active = ActiveDownload(
+                download_id=download_id,
+                url=url,
+                quality=quality,
+                format=fmt,
+                audio_only=audio_only,
+                progress=DownloadProgress(
+                    download_id=download_id,
+                    status=DownloadStatus.QUEUED,
+                    message="Waiting in queue...",
+                ),
+            )
+            self._active[download_id] = active
+            self._signatures[signature] = download_id
+
         item = QueueItem(
             priority=-priority,
             download_id=download_id,
@@ -133,21 +195,6 @@ class DownloadManager:
             format=fmt,
             audio_only=audio_only,
         )
-        active = ActiveDownload(
-            download_id=download_id,
-            url=url,
-            quality=quality,
-            format=fmt,
-            audio_only=audio_only,
-            progress=DownloadProgress(
-                download_id=download_id,
-                status=DownloadStatus.QUEUED,
-                message="Waiting in queue...",
-            ),
-        )
-        self._active[download_id] = active
-        self._ensure_async_primitives()
-        assert self._queue is not None
         await self._queue.put(item)
         await self._broadcast(active.progress)
         await self._create_history_record(download_id, url, quality, fmt)
@@ -196,7 +243,9 @@ class DownloadManager:
             item = await self._queue.get()
             assert self._semaphore is not None
             await self._semaphore.acquire()
-            asyncio.create_task(self._process_item(item))
+            task = asyncio.create_task(self._process_item(item))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
 
     async def _process_item(self, item: QueueItem) -> None:
         assert self._semaphore is not None
@@ -209,6 +258,13 @@ class DownloadManager:
             await self._run_download(active)
         finally:
             self._semaphore.release()
+            # Allow the same URL/format to be requested again once finished.
+            if active.progress.status in _TERMINAL_STATUSES:
+                signature = self._signature(
+                    active.url, active.quality, active.format, active.audio_only
+                )
+                if self._signatures.get(signature) == active.download_id:
+                    self._signatures.pop(signature, None)
 
     async def _run_download(self, active: ActiveDownload) -> None:
         download_id = active.download_id
@@ -296,18 +352,62 @@ class DownloadManager:
             await self._broadcast(active.progress)
             logger.info("Download completed: %s", download_id, extra={"download_id": download_id})
 
-        except Exception as exc:
-            active.progress.status = DownloadStatus.FAILED
-            active.progress.message = str(exc)
-            await self._update_history_status(download_id, DownloadStatus.FAILED, str(exc))
+        except (DownloadCancelledError, asyncio.CancelledError):
+            active.progress.status = DownloadStatus.CANCELLED
+            active.progress.message = "Cancelled"
+            self._cleanup_partial_files(download_id)
+            await self._update_history_status(download_id, DownloadStatus.CANCELLED)
             await self._broadcast(active.progress)
-            logger.error("Download failed: %s", exc, extra={"download_id": download_id})
+            logger.info("Download cancelled: %s", download_id, extra={"download_id": download_id})
+
+        except Exception as exc:  # noqa: BLE001 - translated to structured error
+            # Cancellation can surface as a generic yt-dlp DownloadError.
+            if active.cancel_event and active.cancel_event.is_set():
+                active.progress.status = DownloadStatus.CANCELLED
+                active.progress.message = "Cancelled"
+                self._cleanup_partial_files(download_id)
+                await self._update_history_status(download_id, DownloadStatus.CANCELLED)
+                await self._broadcast(active.progress)
+                return
+
+            error = exc if isinstance(exc, DownloaderError) else classify_ytdlp_error(
+                exc, url=active.url
+            )
+            active.progress.status = DownloadStatus.FAILED
+            active.progress.message = error.message
+            active.progress.error = error.error
+            active.progress.solution = error.solution
+            self._cleanup_partial_files(download_id)
+            await self._update_history_status(download_id, DownloadStatus.FAILED, error.message)
+            await self._broadcast(active.progress)
+            logger.error(
+                "Download failed [%s]: %s",
+                error.error,
+                error.debug or error.message,
+                extra={"download_id": download_id},
+            )
+
+    def _cleanup_partial_files(self, download_id: str) -> None:
+        """Remove partial/temporary artefacts for a failed or cancelled job."""
+        patterns = (f"{download_id}_*", f"{download_id}_*.part", f"{download_id}_*.ytdl")
+        for base in (self.settings.resolved_downloads_dir, self.settings.resolved_temp_dir):
+            try:
+                for pattern in patterns:
+                    for leftover in base.glob(pattern):
+                        try:
+                            leftover.unlink()
+                            logger.debug("Removed leftover file: %s", leftover)
+                        except OSError:
+                            pass
+            except Exception:  # noqa: BLE001 - cleanup must never raise
+                logger.debug("Cleanup skipped for %s in %s", download_id, base)
 
     async def _create_history_record(
         self, download_id: str, url: str, quality: str, fmt: str
     ) -> None:
         async with async_session_factory() as session:
             record = DownloadRecord(
+                download_id=download_id,
                 url=url,
                 title=f"Download {download_id}",
                 quality=quality,
@@ -317,14 +417,20 @@ class DownloadManager:
             session.add(record)
             await session.commit()
 
+    async def _get_record(self, session: Any, download_id: str) -> DownloadRecord | None:
+        result = await session.execute(
+            select(DownloadRecord)
+            .where(DownloadRecord.download_id == download_id)
+            .order_by(DownloadRecord.id.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def _update_history_status(
         self, download_id: str, status: DownloadStatus, error: str = ""
     ) -> None:
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(DownloadRecord).where(DownloadRecord.url.contains(download_id)).limit(1)
-            )
-            record = result.scalar_one_or_none()
+            record = await self._get_record(session, download_id)
             if record:
                 record.status = status
                 record.error_message = error
@@ -340,10 +446,7 @@ class DownloadManager:
         file_size: int = 0,
     ) -> None:
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(DownloadRecord).order_by(DownloadRecord.id.desc()).limit(1)
-            )
-            record = result.scalar_one_or_none()
+            record = await self._get_record(session, download_id)
             if record:
                 record.status = status
                 if s3_url:

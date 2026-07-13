@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -22,6 +22,7 @@ from backend.config.logging_config import setup_logging
 from backend.config.settings import get_settings
 from backend.database.session import init_db
 from backend.services.download_manager import download_manager
+from backend.services.exceptions import DownloaderError
 from backend.websocket.download_ws import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,29 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(DownloaderError)
+async def downloader_error_handler(request: Request, exc: DownloaderError) -> JSONResponse:
+    """Return the structured error envelope; log the raw detail server-side."""
+    if exc.debug:
+        logger.warning("DownloaderError [%s] on %s: %s", exc.error, request.url.path, exc.debug)
+    return JSONResponse(status_code=exc.http_status, content=exc.to_dict())
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Never leak raw exceptions — always return a structured JSON error."""
+    logger.exception("Unhandled error on %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "internal_error",
+            "message": "An unexpected error occurred.",
+            "solution": "Please try again. If the problem persists, contact support.",
+        },
+    )
 
 app.add_middleware(
     CORSMiddleware,

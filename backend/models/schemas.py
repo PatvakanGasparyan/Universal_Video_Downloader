@@ -30,6 +30,7 @@ class DownloadRecord(Base):
     __tablename__ = "download_history"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    download_id: Mapped[str] = mapped_column(String(32), default="", index=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(String(512), default="")
     channel: Mapped[str] = mapped_column(String(256), default="")
@@ -141,12 +142,23 @@ class DownloadProgress(BaseModel):
     current_file: str = ""
     stage: str = ""
     message: str = ""
+    error: str = ""
+    solution: str = ""
 
 
 class DownloadResponse(BaseModel):
     download_id: str
     status: DownloadStatus
     message: str = ""
+
+
+class ErrorResponse(BaseModel):
+    """Structured error envelope returned by the API on failures."""
+
+    success: bool = False
+    error: str = "download_failed"
+    message: str = "The request could not be completed."
+    solution: str = "Please try again later."
 
 
 class HistoryItem(BaseModel):

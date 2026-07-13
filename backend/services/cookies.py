@@ -11,6 +11,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_COOKIES_PATH = Path("./data/cookies.txt")
 LEGACY_COOKIES_PATH = Path("./config/cookies.txt")
 
+# Browsers yt-dlp can pull cookies from, in the order we try them.
+SUPPORTED_BROWSERS = (
+    "chrome", "chromium", "edge", "firefox", "brave", "opera", "vivaldi", "safari",
+)
+
+
+def normalize_browser_order(order: list[str] | None) -> list[str]:
+    """Return a de-duplicated, validated browser list for --cookies-from-browser."""
+    result: list[str] = []
+    for name in order or []:
+        key = (name or "").strip().lower()
+        if key in SUPPORTED_BROWSERS and key not in result:
+            result.append(key)
+    return result
+
 
 def default_cookies_path() -> Path:
     """Return the canonical cookies.txt path (writable data volume)."""

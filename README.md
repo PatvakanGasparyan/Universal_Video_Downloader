@@ -130,6 +130,17 @@ Copy `.env.example` to `.env` and adjust. Every variable below is read by the ap
 | `COOKIES_FILE` | `./data/cookies.txt` | Netscape `cookies.txt` for YouTube/site auth |
 | `METADATA_CACHE_TTL` | `3600` | Metadata cache lifetime (seconds) |
 
+### Download pipeline & reliability
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COOKIES_FROM_BROWSER` | `true` | Try browser cookies before `cookies.txt`. **Set `false` on headless servers** (Docker/EC2/k8s). |
+| `COOKIE_BROWSER_ORDER` | `["chrome","chromium","edge","firefox"]` | Browsers to try, in order, for `--cookies-from-browser` |
+| `YTDLP_SOCKET_TIMEOUT` | `30` | Per-connection socket timeout (seconds) |
+| `YTDLP_RETRIES` | `3` | yt-dlp HTTP/fragment retries |
+| `EXTRACT_TIMEOUT` | `90` | Wall-clock timeout for metadata extraction (seconds) |
+| `TRANSIENT_RETRY_ATTEMPTS` | `2` | Extra retries for transient network/rate-limit errors |
+
 ### Logging & optional services
 
 | Variable | Default | Description |
@@ -245,6 +256,52 @@ To add a language:
 2. Translate all values
 3. Add the language to the selector in HTML templates
 4. Update `backend/localization/loader.py` → `supported_languages()`
+
+## Download Pipeline & Error Handling
+
+The backend wraps yt-dlp in a resilient pipeline (`backend/services/ytdlp_service.py`).
+
+### Automatic authentication fallback
+
+When a site blocks anonymous access (e.g. YouTube's bot check), the pipeline
+transparently retries with escalating authentication before giving up:
+
+1. **Anonymous** — no cookies.
+2. **Browser cookies** — `--cookies-from-browser` in order: `chrome → chromium → edge → firefox` (configurable via `COOKIE_BROWSER_ORDER`; skipped when `COOKIES_FROM_BROWSER=false`).
+3. **`cookies.txt`** — the uploaded/configured cookie file.
+4. **Friendly error** — if every strategy still hits an auth wall, a structured `youtube_auth_required` error is returned.
+
+Only authentication/rate-limit failures advance the chain. Errors that cookies
+can't fix (video unavailable, unsupported URL, geo-block) fail fast. Transient
+network/rate-limit errors are retried with backoff (`TRANSIENT_RETRY_ATTEMPTS`).
+
+### Structured JSON errors
+
+Raw yt-dlp exceptions are **never** exposed. Every failure is translated into a
+stable envelope (see `backend/services/exceptions.py`):
+
+```json
+{
+  "success": false,
+  "error": "youtube_auth_required",
+  "message": "Authentication required.",
+  "solution": "Upload cookies.txt in Settings (or sign in to the site in your browser and export fresh cookies), then try again."
+}
+```
+
+Error codes: `youtube_auth_required`, `auth_required`, `video_unavailable`,
+`geo_restricted`, `rate_limited`, `unsupported_url`, `network_error`,
+`invalid_url`, `cancelled`, `download_failed`, `internal_error`. The HTTP status
+reflects the category (401 for auth, 404 for unavailable, 429 for rate limits,
+etc.). The same `error`/`message`/`solution` fields are also streamed over the
+download WebSocket so the UI can show an actionable hint.
+
+### Other reliability features
+
+- **Duplicate prevention** — identical in-flight requests (same URL/quality/format) are coalesced to one download.
+- **Cancellation & cleanup** — cancelling removes partial `.part`/`.ytdl` artefacts; failures clean up too.
+- **Graceful shutdown** — in-flight downloads are signalled and drained on shutdown.
+- **Thread-safe progress** — yt-dlp progress hooks (worker thread) broadcast back to the event loop safely.
 
 ## YouTube Cookie Authentication
 

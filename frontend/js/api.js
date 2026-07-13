@@ -1,6 +1,24 @@
 /**
  * API client for Universal Video Downloader backend.
  */
+
+/**
+ * Build a rich Error from a backend response body. Supports the structured
+ * envelope { success, error, message, solution } and FastAPI's { detail }.
+ */
+function buildApiError(body, fallback = 'Request failed') {
+  if (body && typeof body === 'object' && (body.error || body.solution) && body.message) {
+    const err = new Error(body.message);
+    err.code = body.error || '';
+    err.solution = body.solution || '';
+    return err;
+  }
+  const err = new Error(formatApiError(body && body.detail, fallback));
+  err.code = '';
+  err.solution = '';
+  return err;
+}
+
 function formatApiError(detail, fallback = 'Request failed') {
   if (detail == null || detail === '') return fallback;
   if (typeof detail === 'string') return detail;
@@ -36,8 +54,8 @@ const API = {
       ...options,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw buildApiError(body, res.statusText || 'Request failed');
     }
     return res.json();
   },
@@ -104,8 +122,8 @@ const API = {
       body: form,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(formatApiError(err.detail, res.statusText || 'Upload failed'));
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw buildApiError(body, res.statusText || 'Upload failed');
     }
     return res.json();
   },

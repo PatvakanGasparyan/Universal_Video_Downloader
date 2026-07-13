@@ -11,6 +11,7 @@ from backend.models.schemas import (
     DownloadStatus,
 )
 from backend.services.download_manager import DownloadManager
+from backend.services.exceptions import InvalidURLError
 from backend.services.security import validate_url
 
 router = APIRouter(prefix="/api", tags=["download"])
@@ -27,7 +28,7 @@ async def start_download(
     try:
         url = validate_url(str(body.url))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise InvalidURLError(message=str(exc), debug=str(exc)) from exc
 
     download_id = await manager.enqueue(
         url=url,

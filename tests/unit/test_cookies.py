@@ -12,7 +12,10 @@ from backend.services.cookies import (
 
 def test_resolve_cookies_from_env(tmp_path):
     cookies = tmp_path / "cookies.txt"
-    cookies.write_text("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tFALSE\t0\tA\tB\n", encoding="utf-8")
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tFALSE\t0\tA\tB\n",
+        encoding="utf-8",
+    )
     result = resolve_cookies_file(env_path=cookies)
     assert result == cookies.resolve()
 

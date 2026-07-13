@@ -14,6 +14,7 @@ _SQLITE_COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("app_settings", "cookies_file", "TEXT NOT NULL DEFAULT ''"),
     ("download_history", "s3_key", "TEXT NOT NULL DEFAULT ''"),
     ("download_history", "s3_url", "TEXT NOT NULL DEFAULT ''"),
+    ("download_history", "download_id", "VARCHAR(32) NOT NULL DEFAULT ''"),
 ]
 
 

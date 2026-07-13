@@ -37,12 +37,26 @@ class Settings(BaseSettings):
 
     ffmpeg_location: str | None = Field(default=None, alias="FFMPEG_LOCATION")
     cookies_file: Path | None = Field(
-        default=Path("./config/cookies.txt"),
+        default=Path("./data/cookies.txt"),
         alias="COOKIES_FILE",
     )
     max_concurrent_downloads: int = Field(default=3, alias="MAX_CONCURRENT_DOWNLOADS")
     metadata_cache_ttl: int = Field(default=3600, alias="METADATA_CACHE_TTL")
     rate_limit: str = Field(default="30/minute", alias="RATE_LIMIT")
+
+    # --- Download pipeline / yt-dlp reliability ---
+    # When a site blocks anonymous access, try to load cookies directly from a
+    # locally-installed browser before falling back to cookies.txt. Disable on
+    # headless servers (no browser profile) to save time.
+    cookies_from_browser: bool = Field(default=True, alias="COOKIES_FROM_BROWSER")
+    cookie_browser_order: list[str] = Field(
+        default=["chrome", "chromium", "edge", "firefox"],
+        alias="COOKIE_BROWSER_ORDER",
+    )
+    ytdlp_socket_timeout: int = Field(default=30, alias="YTDLP_SOCKET_TIMEOUT")
+    ytdlp_retries: int = Field(default=3, alias="YTDLP_RETRIES")
+    extract_timeout: int = Field(default=90, alias="EXTRACT_TIMEOUT")
+    transient_retry_attempts: int = Field(default=2, alias="TRANSIENT_RETRY_ATTEMPTS")
 
     cors_origins: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000"],
