@@ -8,15 +8,39 @@ from urllib.parse import urlparse
 
 ALLOWED_SCHEMES = {"http", "https"}
 BLOCKED_PATH_PATTERNS = ("..", "~", "\0")
+# Find first http(s) URL; stops before a glued second scheme (…v=xxxhttps://…)
+URL_FINDER = re.compile(
+    r"https?://[^\s<>\"']+?(?=https?://|$|\s)",
+    re.IGNORECASE,
+)
 URL_PATTERN = re.compile(
     r"^https?://[^\s/$.?#].[^\s]*$",
     re.IGNORECASE,
 )
 
 
+def extract_first_url(raw: str) -> str:
+    """Extract and clean the first video URL from pasted text."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+
+    # Common paste glitch: two URLs stuck together without a separator
+    match = URL_FINDER.search(text)
+    if match:
+        text = match.group(0)
+    else:
+        parts = re.split(r"(?=https?://)", text, flags=re.IGNORECASE)
+        http_parts = [p for p in parts if p.lower().startswith(("http://", "https://"))]
+        if http_parts:
+            text = http_parts[0]
+
+    return text.rstrip(".,;)]}>\"").strip()
+
+
 def validate_url(url: str) -> str:
     """Validate and normalize a video URL."""
-    url = url.strip()
+    url = extract_first_url(url)
     if not url:
         raise ValueError("URL cannot be empty")
 

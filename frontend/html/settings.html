@@ -121,7 +121,7 @@
         qualities: ['best','8k','4k','1440p','1080p','720p','480p','360p'],
         formats: ['mp4','mkv','webm','mp3','aac','m4a'],
         cookiesExists: false,
-        cookiesPath: './config/cookies.txt',
+        cookiesPath: './data/cookies.txt',
         cookiesSize: 0,
         cookiesPaste: '',
         cookiesFile: null,
@@ -144,7 +144,7 @@
           try {
             const status = await API.getCookiesStatus();
             this.cookiesExists = !!status.exists;
-            this.cookiesPath = status.path || './config/cookies.txt';
+            this.cookiesPath = status.path || './data/cookies.txt';
             this.cookiesSize = status.size || 0;
           } catch {
             this.cookiesExists = false;
@@ -168,7 +168,7 @@
               file: this.cookiesFile,
               content: this.cookiesPaste.trim(),
             });
-            this.settings.cookies_file = './config/cookies.txt';
+            this.settings.cookies_file = './data/cookies.txt';
             this.cookiesPaste = '';
             this.cookiesFile = null;
             this.cookiesMessage = this.t('cookies_saved');

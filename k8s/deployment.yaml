@@ -68,6 +68,7 @@ spec:
             - name: logs
               mountPath: /app/logs
       volumes:
+        # data/ holds SQLite + cookies.txt (survives container restarts within the pod lifecycle)
         - name: data
           emptyDir: {}
         - name: downloads

@@ -41,13 +41,15 @@ function downloaderApp() {
       this.metadata = null;
       this.progress = null;
       this.completed = false;
-      if (!this.url.trim()) {
+      const cleaned = this.cleanUrl(this.url);
+      this.url = cleaned;
+      if (!cleaned) {
         this.error = this.t('error_invalid_url');
         return;
       }
       this.loading = true;
       try {
-        this.metadata = await API.getInfo(this.url.trim());
+        this.metadata = await API.getInfo(cleaned);
       } catch (e) {
         this.error = this.formatError(e);
       } finally {
@@ -55,14 +57,35 @@ function downloaderApp() {
       }
     },
 
+    cleanUrl(raw) {
+      const text = (raw || '').trim();
+      if (!text) return '';
+      // Fix glued URLs: ...watch?v=IDhttps://www.youtube.com/...
+      const match = text.match(/https?:\/\/[^\s<>"']+?(?=https?:\/\/|$|\s)/i);
+      let url = match ? match[0] : text;
+      url = url.replace(/[.,;)\]]+$/, '');
+      return url;
+    },
+
+    formatError(e) {
+      const msg = e?.message || this.t('error_fetch_info');
+      if (/not a bot|cookies-from-browser|--cookies/i.test(msg)) {
+        return `${this.t('cookies_required_hint')}\n\n${msg}`;
+      }
+      return msg;
+    },
+
     async startDownload() {
       this.downloading = true;
       this.completed = false;
+      this.error = '';
       this.progress = { percent: 0, status: 'queued', message: this.t('status_queued') };
       try {
+        const cleaned = this.cleanUrl(this.url);
+        this.url = cleaned;
         const audioOnly = ['mp3','aac','m4a','flac','wav','ogg'].includes(this.selectedFormat);
         const res = await API.startDownload({
-          url: this.url.trim(),
+          url: cleaned,
           quality: this.selectedQuality,
           format: this.selectedFormat,
           audio_only: audioOnly,
@@ -76,20 +99,13 @@ function downloaderApp() {
           }
           if (data.status === 'failed' || data.status === 'cancelled') {
             this.downloading = false;
+            if (data.message) this.error = this.formatError({ message: data.message });
           }
         });
       } catch (e) {
         this.error = this.formatError(e);
         this.downloading = false;
       }
-    },
-
-    formatError(e) {
-      const msg = e?.message || this.t('error_fetch_info');
-      if (/not a bot|cookies-from-browser|--cookies/i.test(msg)) {
-        return `${msg}\n\n${this.t('cookies_required_hint')}`;
-      }
-      return msg;
     },
 
     async pauseResume() {
@@ -123,8 +139,8 @@ function downloaderApp() {
 
     handlePaste(e) {
       const text = e.clipboardData?.getData('text') || '';
-      if (text.match(/^https?:\/\//)) {
-        this.url = text.trim();
+      if (text.match(/https?:\/\//i)) {
+        this.url = this.cleanUrl(text);
       }
     },
 

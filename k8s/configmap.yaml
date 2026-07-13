@@ -24,7 +24,7 @@ data:
 
   # Paths inside the container
   LOG_DIR: "./logs"
-  COOKIES_FILE: "./config/cookies.txt"
+  COOKIES_FILE: "./data/cookies.txt"
 
   # CORS — replace with your public URL after Terraform gives you the EC2 IP
   CORS_ORIGINS: '["http://localhost:8000"]'

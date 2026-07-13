@@ -7,11 +7,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_COOKIES_PATH = Path("./config/cookies.txt")
+# Prefer data/ (mounted volume in k8s) so cookies survive pod restarts
+DEFAULT_COOKIES_PATH = Path("./data/cookies.txt")
+LEGACY_COOKIES_PATH = Path("./config/cookies.txt")
 
 
 def default_cookies_path() -> Path:
-    """Return the canonical project cookies.txt path."""
+    """Return the canonical cookies.txt path (writable data volume)."""
     path = DEFAULT_COOKIES_PATH
     if not path.is_absolute():
         path = (Path.cwd() / path).resolve()
@@ -26,7 +28,7 @@ def resolve_cookies_file(
     """
     Resolve a Netscape-format cookies.txt file for yt-dlp.
 
-    Priority: settings override → env path → default config/cookies.txt.
+    Priority: settings override → env path → data/cookies.txt → config/cookies.txt.
     """
     candidates: list[tuple[str, str]] = []
     if override_path and override_path.strip():
@@ -34,6 +36,7 @@ def resolve_cookies_file(
     if env_path:
         candidates.append(("environment", str(env_path)))
     candidates.append(("default", str(DEFAULT_COOKIES_PATH)))
+    candidates.append(("legacy", str(LEGACY_COOKIES_PATH)))
 
     for source, raw in candidates:
         path = Path(raw).expanduser()
@@ -43,10 +46,10 @@ def resolve_cookies_file(
             path = path.resolve()
 
         if path.is_file() and path.stat().st_size > 0:
-            logger.debug("Using cookies file from %s: %s", source, path)
+            logger.info("Using cookies file from %s: %s", source, path)
             return path
 
-        if source != "default":
+        if source in {"settings", "environment"}:
             logger.warning("Cookies file configured in %s but not found: %s", source, path)
 
     return None
@@ -54,15 +57,21 @@ def resolve_cookies_file(
 
 def save_cookies_content(content: str) -> Path:
     """Validate and save Netscape cookies.txt content to the default path."""
-    text = content.strip()
+    text = content.strip().lstrip("\ufeff")
     if not text:
         raise ValueError("Cookies content is empty")
 
-    # Basic Netscape cookie file sanity check
-    if "\t" not in text and "# Netscape" not in text and "# HTTP Cookie File" not in text:
-        # Still allow if it looks like cookie lines
-        if not any(line and not line.startswith("#") for line in text.splitlines()):
-            raise ValueError("Invalid cookies.txt format")
+    has_tabs = "\t" in text
+    has_header = any(
+        marker in text
+        for marker in ("# Netscape", "# HTTP Cookie File", "# This file")
+    )
+    data_lines = [
+        line for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    if not has_tabs and not has_header and not data_lines:
+        raise ValueError("Invalid cookies.txt format")
 
     path = default_cookies_path()
     path.write_text(text + ("\n" if not text.endswith("\n") else ""), encoding="utf-8")

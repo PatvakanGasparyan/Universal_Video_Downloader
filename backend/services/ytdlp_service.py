@@ -51,6 +51,16 @@ class YtDlpService:
             "no_warnings": True,
             "noplaylist": True,
             "socket_timeout": 30,
+            "retries": 3,
+            "fragment_retries": 3,
+            "http_headers": {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
+            },
         }
         if self.settings.ffmpeg_location:
             opts["ffmpeg_location"] = self.settings.ffmpeg_location
@@ -65,11 +75,15 @@ class YtDlpService:
         else:
             logger.warning(
                 "No cookies file found (checked COOKIES_FILE and settings). "
-                "YouTube may block requests — add config/cookies.txt"
+                "YouTube may block requests — upload cookies in Settings"
             )
 
-        # Helps with YouTube bot checks when combined with cookies
-        opts["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
+        # Prefer mobile/TV clients — less aggressive bot checks than web alone
+        opts["extractor_args"] = {
+            "youtube": {
+                "player_client": ["android", "ios", "tv_embedded", "web"],
+            }
+        }
 
         return opts
 

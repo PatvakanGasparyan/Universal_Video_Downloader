@@ -58,7 +58,7 @@
   "auto_update": "Auto update yt-dlp",
   "ffmpeg_path": "FFmpeg location",
   "cookies_file": "Cookies file (cookies.txt)",
-  "cookies_file_hint": "Export cookies from your browser (Netscape format) using an extension like \"Get cookies.txt LOCALLY\", then upload or paste below. Saved to config/cookies.txt.",
+  "cookies_file_hint": "Export cookies from your browser (Netscape format) using an extension like \"Get cookies.txt LOCALLY\", then upload or paste below. Saved to data/cookies.txt.",
   "cookies_required_hint": "YouTube requires browser cookies. Go to Settings → upload or paste your cookies.txt, then try again.",
   "cookies_upload": "Upload cookies.txt",
   "cookies_paste": "Or paste cookies.txt content",

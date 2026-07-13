@@ -8,6 +8,7 @@ from backend.api.deps import get_settings_service
 from backend.models.schemas import ApiMessage, SettingsSchema
 from backend.services.cookies import cookies_status, default_cookies_path, save_cookies_content
 from backend.services.history_service import SettingsService
+from backend.services.metadata_cache import metadata_cache
 
 router = APIRouter(prefix="/api", tags=["settings"])
 
@@ -68,6 +69,9 @@ async def upload_cookies(
     current = await service.get_settings()
     updated = current.model_copy(update={"cookies_file": str(default_cookies_path())})
     await service.update_settings(updated)
+
+    # Drop cached metadata so previous bot-block errors don't stick
+    await metadata_cache.clear()
 
     return ApiMessage(
         message="Cookies saved successfully",

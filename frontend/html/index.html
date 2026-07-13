@@ -74,7 +74,10 @@
           <span x-text="loading ? '...' : t('analyze_btn')">Analyze</span>
         </button>
       </div>
-      <p x-show="error" class="text-red-400 mt-3 text-sm whitespace-pre-line" role="alert" x-text="error"></p>
+          <p x-show="error" class="text-red-400 mt-3 text-sm whitespace-pre-line" role="alert" x-text="error"></p>
+          <p x-show="error && /cookies|bot/i.test(error)" class="mt-2 text-sm">
+            <a href="/settings" class="text-green-400 underline" x-text="t('nav_settings') + ' → cookies.txt'"></a>
+          </p>
       <p class="text-xs text-[var(--text-secondary)] mt-2 text-center" x-text="t('drag_drop')"></p>
     </section>
 

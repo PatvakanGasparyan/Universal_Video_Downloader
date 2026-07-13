@@ -21,6 +21,10 @@ class TestValidateUrl:
         with pytest.raises(ValueError, match="valid host"):
             validate_url("https://")
 
+    def test_glued_urls_extracts_first(self):
+        raw = "https://www.youtube.com/watch?v=Oh3z4Opslkchttps://www.youtube.com/wa"
+        assert validate_url(raw) == "https://www.youtube.com/watch?v=Oh3z4Opslkc"
+
 
 class TestSanitizeFilename:
     def test_removes_invalid_chars(self):
