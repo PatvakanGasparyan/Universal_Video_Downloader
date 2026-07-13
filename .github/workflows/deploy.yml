@@ -5,51 +5,112 @@ on:
     branches:
       - master
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+concurrency:
+  group: deploy-master
+  cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  # Heavy work runs on GitHub (cached layers). EC2 only pulls & restarts.
+  build:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - name: Deploy to EC2 via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tags
+        id: meta
+        run: |
+          IMAGE="$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')"
+          TAG="${{ github.sha }}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Building ${IMAGE}:${TAG}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to EC2 (k3s)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}
+          REPO: ${{ github.repository }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.IAM_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,IMAGE,IMAGE_TAG,REPO
           script_stop: true
-          command_timeout: 30m
+          command_timeout: 10m
           script: |
             set -euo pipefail
 
-            echo "==> Шаг 0: Железно включаем память"
-            sudo fallocate -l 2G /swapfile || true
-            sudo chmod 600 /swapfile || true
-            sudo mkswap /swapfile || true
-            sudo swapon /swapfile || true
+            echo "==> Шаг 0: Swap (только если нет)"
+            if ! swapon --show 2>/dev/null | grep -q '/swapfile'; then
+              sudo fallocate -l 2G /swapfile || true
+              sudo chmod 600 /swapfile || true
+              sudo mkswap /swapfile || true
+              sudo swapon /swapfile || true
+            fi
 
-            echo "==> Шаг 0.5: Очистка прерванных установок"
+            echo "==> Шаг 0.5: dpkg"
             sudo dpkg --configure -a || true
 
-            echo "==> Шаг 1: Устанавливаем нужные программы (git и docker)"
-            sudo apt-get update -y
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git docker.io
+            echo "==> Шаг 1: git (пропуск если есть)"
+            if ! command -v git >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git
+            fi
 
             APP_DIR="/opt/universal-video-downloader"
-            IMAGE_NAME="universal-video-downloader:latest"
-            REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+            FULL_IMAGE="${IMAGE}:${IMAGE_TAG}"
+            REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
+            GHCR_USER="${REPO%%/*}"
 
-            echo "==> Шаг 2: Синхронизируем код"
+            echo "==> Шаг 2: Синхронизация k8s/ (shallow)"
             if [ -d "${APP_DIR}/.git" ]; then
               sudo chown -R ubuntu:ubuntu "${APP_DIR}"
               cd "${APP_DIR}"
               git remote set-url origin "${REPO_URL}"
-              git fetch origin master
-              git reset --hard origin/master
+              git fetch --depth 1 origin master
+              git reset --hard FETCH_HEAD
             else
               sudo mkdir -p "${APP_DIR}"
               sudo chown -R ubuntu:ubuntu "${APP_DIR}"
@@ -57,15 +118,17 @@ jobs:
               cd "${APP_DIR}"
             fi
 
-            echo "==> Шаг 3: Собираем Docker образ"
-            sudo docker build -t "${IMAGE_NAME}" .
-
-            echo "==> Шаг 4: Загружаем образ в k3s"
-            sudo docker save "${IMAGE_NAME}" | sudo k3s ctr images import -
-
-            echo "==> Шаг 5: Подготовка ключей"
+            echo "==> Шаг 3–4: Namespace + GHCR pull secret"
             sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
+            sudo k3s kubectl create secret docker-registry ghcr-secret \
+              --namespace=universal-video-downloader \
+              --docker-server=ghcr.io \
+              --docker-username="${GHCR_USER}" \
+              --docker-password="${GITHUB_TOKEN}" \
+              --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+
+            echo "==> Шаг 5: App secrets"
             EXISTING_SECRET_KEY=""
             if sudo k3s kubectl get secret uvd-secrets -n universal-video-downloader >/dev/null 2>&1; then
               EXISTING_SECRET_KEY="$(sudo k3s kubectl get secret uvd-secrets -n universal-video-downloader -o jsonpath='{.data.SECRET_KEY}' | base64 -d 2>/dev/null || true)"
@@ -79,11 +142,16 @@ jobs:
               --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
-            echo "==> Шаг 6: Запускаем настройки k8s"
+            echo "==> Шаг 6: Apply manifests"
             sudo k3s kubectl apply -f k8s/
 
-            echo "==> Шаг 7: Обновляем сайт"
-            sudo k3s kubectl rollout restart deployment/uvd-backend -n universal-video-downloader || true
+            echo "==> Шаг 7: Pull new image into k3s + rollout"
+            # Pre-pull so rollout does not wait on cold pull under memory pressure
+            sudo k3s ctr images pull -u "${GHCR_USER}:${GITHUB_TOKEN}" "${FULL_IMAGE}"
+
+            sudo k3s kubectl set image deployment/uvd-backend \
+              backend="${FULL_IMAGE}" \
+              -n universal-video-downloader
             sudo k3s kubectl rollout status deployment/uvd-backend -n universal-video-downloader --timeout=120s
 
-            echo "==> Успешно завершено!"
+            echo "==> Успешно: ${FULL_IMAGE}"

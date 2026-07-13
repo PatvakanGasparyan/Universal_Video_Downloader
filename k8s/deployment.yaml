@@ -7,29 +7,27 @@ metadata:
     app.kubernetes.io/name: universal-video-downloader
     app.kubernetes.io/component: backend
 spec:
-  replicas: 2
+  # Single replica for t3.micro (1GB RAM) — two pods OOM the node
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: universal-video-downloader
       app.kubernetes.io/component: backend
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   template:
     metadata:
       labels:
         app.kubernetes.io/name: universal-video-downloader
         app.kubernetes.io/component: backend
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: backend
-          # Build and load into k3s on the EC2 node:
-          #   docker build -t universal-video-downloader:latest .
-          #   docker save universal-video-downloader:latest | sudo k3s ctr images import -
-          image: universal-video-downloader:latest
-          imagePullPolicy: IfNotPresent
+          # Overridden by deploy workflow to ghcr.io/<owner>/<repo>:<sha>
+          image: ghcr.io/OWNER/universal-video-downloader:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000
@@ -43,25 +41,25 @@ spec:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 30
-            periodSeconds: 30
+            initialDelaySeconds: 20
+            periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 100m
+              memory: 256Mi
             limits:
-              cpu: "1"
-              memory: 1Gi
+              cpu: 500m
+              memory: 768Mi
           volumeMounts:
             - name: data
               mountPath: /app/data
@@ -70,9 +68,6 @@ spec:
             - name: logs
               mountPath: /app/logs
       volumes:
-        # emptyDir lets both replicas run on a single k3s node.
-        # For durable storage, replace with PersistentVolumeClaims (ReadWriteOnce
-        # allows only one pod to mount — use an external DB for true multi-replica HA).
         - name: data
           emptyDir: {}
         - name: downloads
