@@ -83,6 +83,7 @@ Once deployed, the app is available on port **8000**:
 
 **Universal Video Downloader** is a self-hosted web application that lets you fetch videos and audio from **hundreds of websites** that [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports — YouTube, TikTok, Instagram, Vimeo, Twitch, Rutube, and many more — all from a clean, responsive browser UI.
 
+
 <table>
 <tr>
 <td width="50%" valign="top">
