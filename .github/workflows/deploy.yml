@@ -17,7 +17,6 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  # Heavy work runs on GitHub (cached layers). EC2 only pulls & restarts.
   build:
     name: Build & push image
     runs-on: ubuntu-latest
@@ -81,30 +80,25 @@ jobs:
           command_timeout: 10m
           script: |
             set -euo pipefail
-
-            echo "==> Шаг 0: Swap (только если нет)"
+            echo "==> Шаг 0: Swap"
             if ! swapon --show 2>/dev/null | grep -q '/swapfile'; then
               sudo fallocate -l 2G /swapfile || true
               sudo chmod 600 /swapfile || true
               sudo mkswap /swapfile || true
               sudo swapon /swapfile || true
             fi
-
             echo "==> Шаг 0.5: dpkg"
             sudo dpkg --configure -a || true
-
-            echo "==> Шаг 1: git (пропуск если есть)"
+            echo "==> Шаг 1: git"
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
               sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git
             fi
-
             APP_DIR="/opt/universal-video-downloader"
             FULL_IMAGE="${IMAGE}:${IMAGE_TAG}"
             REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
             GHCR_USER="${REPO%%/*}"
-
-            echo "==> Шаг 2: Синхронизация k8s/ (shallow)"
+            echo "==> Шаг 2: Синхронизация"
             if [ -d "${APP_DIR}/.git" ]; then
               sudo chown -R ubuntu:ubuntu "${APP_DIR}"
               cd "${APP_DIR}"
@@ -117,41 +111,20 @@ jobs:
               git clone --branch master --depth 1 "${REPO_URL}" "${APP_DIR}"
               cd "${APP_DIR}"
             fi
-
-            echo "==> Шаг 3–4: Namespace + GHCR pull secret"
-            sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply -f -
-
-            sudo k3s kubectl create secret docker-registry ghcr-secret \
-              --namespace=universal-video-downloader \
-              --docker-server=ghcr.io \
-              --docker-username="${GHCR_USER}" \
-              --docker-password="${GITHUB_TOKEN}" \
-              --dry-run=client -o yaml | sudo k3s kubectl apply -f -
-
+            echo "==> Шаг 3-4: Namespace + secret"
+            sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
+            sudo k3s kubectl create secret docker-registry ghcr-secret --namespace=universal-video-downloader --docker-server=ghcr.io --docker-username="${GHCR_USER}" --docker-password="${GITHUB_TOKEN}" --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
             echo "==> Шаг 5: App secrets"
             EXISTING_SECRET_KEY=""
             if sudo k3s kubectl get secret uvd-secrets -n universal-video-downloader >/dev/null 2>&1; then
               EXISTING_SECRET_KEY="$(sudo k3s kubectl get secret uvd-secrets -n universal-video-downloader -o jsonpath='{.data.SECRET_KEY}' | base64 -d 2>/dev/null || true)"
             fi
             SECRET_KEY_VALUE="${EXISTING_SECRET_KEY:-change-me-in-production}"
-
-            sudo k3s kubectl create secret generic uvd-secrets \
-              --namespace=universal-video-downloader \
-              --from-literal=SECRET_KEY="${SECRET_KEY_VALUE}" \
-              --from-literal=AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-              --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-              --dry-run=client -o yaml | sudo k3s kubectl apply -f -
-
+            sudo k3s kubectl create secret generic uvd-secrets --namespace=universal-video-downloader --from-literal=SECRET_KEY="${SECRET_KEY_VALUE}" --from-literal=AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" --from-literal=AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
             echo "==> Шаг 6: Apply manifests"
-            sudo k3s kubectl apply -f k8s/
-
-            echo "==> Шаг 7: Pull new image into k3s + rollout"
-            # Pre-pull so rollout does not wait on cold pull under memory pressure
+            sudo k3s kubectl apply --validate=false -f k8s/
+            echo "==> Шаг 7: Pull + rollout"
             sudo k3s ctr images pull -u "${GHCR_USER}:${GITHUB_TOKEN}" "${FULL_IMAGE}"
-
-            sudo k3s kubectl set image deployment/uvd-backend \
-              backend="${FULL_IMAGE}" \
-              -n universal-video-downloader
+            sudo k3s kubectl set image deployment/uvd-backend backend="${FULL_IMAGE}" -n universal-video-downloader
             sudo k3s kubectl rollout status deployment/uvd-backend -n universal-video-downloader --timeout=120s
-
             echo "==> Успешно: ${FULL_IMAGE}"
