@@ -100,14 +100,14 @@ jobs:
             GHCR_USER="${REPO%%/*}"
             echo "==> Шаг 2: Синхронизация"
             if [ -d "${APP_DIR}/.git" ]; then
-              sudo chown -R ubuntu:ubuntu "${APP_DIR}"
+              sudo chown -R $(whoami):$(whoami) "${APP_DIR}"
               cd "${APP_DIR}"
               git remote set-url origin "${REPO_URL}"
               git fetch --depth 1 origin master
               git reset --hard FETCH_HEAD
             else
               sudo mkdir -p "${APP_DIR}"
-              sudo chown -R ubuntu:ubuntu "${APP_DIR}"
+              sudo chown -R $(whoami):$(whoami) "${APP_DIR}"
               git clone --branch master --depth 1 "${REPO_URL}" "${APP_DIR}"
               cd "${APP_DIR}"
             fi
