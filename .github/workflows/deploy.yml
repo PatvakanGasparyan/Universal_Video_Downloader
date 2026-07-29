@@ -77,9 +77,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: GITHUB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,IMAGE,IMAGE_TAG,REPO
           script_stop: true
-          command_timeout: 10m
+          command_timeout: 15m
           script: |
-            set -euo pipefail
+            set -ex
             echo "==> Шаг 0: Swap"
             if ! swapon --show 2>/dev/null | grep -q '/swapfile'; then
               sudo fallocate -l 2G /swapfile || true
@@ -87,32 +87,30 @@ jobs:
               sudo mkswap /swapfile || true
               sudo swapon /swapfile || true
             fi
-            echo "==> Шаг 0.5: dpkg"
             sudo dpkg --configure -a || true
-            echo "==> Шаг 1: git"
+            
+            echo "==> Шаг 1: Базовые программы (git, k3s)"
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
               sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git
             fi
+            
+            # Автоматическая установка Kubernetes (k3s) для нового сервера
+            if ! command -v k3s >/dev/null 2>&1; then
+              echo "Устанавливаем k3s..."
+              curl -sfL https://get.k3s.io | sh -
+              sleep 15
+            fi
+            
             APP_DIR="/opt/universal-video-downloader"
             FULL_IMAGE="${IMAGE}:${IMAGE_TAG}"
-            REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
             GHCR_USER="${REPO%%/*}"
             
-            echo "==> Шаг 2: Синхронизация"
-            if [ -d "${APP_DIR}/.git" ]; then
-              sudo chown -R $(id -u):$(id -g) "${APP_DIR}"
-              cd "${APP_DIR}"
-              git remote set-url origin "${REPO_URL}"
-              git fetch --depth 1 origin master
-              git reset --hard FETCH_HEAD
-            else
-              sudo rm -rf "${APP_DIR}"
-              sudo mkdir -p "${APP_DIR}"
-              sudo chown -R $(id -u):$(id -g) "${APP_DIR}"
-              git clone --branch master --depth 1 "${REPO_URL}" "${APP_DIR}"
-              cd "${APP_DIR}"
-            fi
+            echo "==> Шаг 2: Синхронизация кода"
+            # Удаляем старое и скачиваем абсолютно чистое
+            sudo rm -rf "${APP_DIR}"
+            sudo git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" "${APP_DIR}"
+            cd "${APP_DIR}"
             
             echo "==> Шаг 3-4: Namespace + secret"
             sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
