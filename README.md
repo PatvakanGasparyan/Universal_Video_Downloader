@@ -95,6 +95,8 @@ Once deployed, the app is available on port **8000**:
 - Anyone who wants a nice UI instead of the command line
 - DevOps engineers showcasing Docker / Terraform / k3s / AWS
 
+
+
 </td>
 <td width="50%" valign="top">
 
