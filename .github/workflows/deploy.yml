@@ -106,11 +106,28 @@ jobs:
             FULL_IMAGE="${IMAGE}:${IMAGE_TAG}"
             GHCR_USER="${REPO%%/*}"
             
+<<<<<<< HEAD
             echo "==> Шаг 2: Синхронизация кода"
             # Удаляем старое и скачиваем абсолютно чистое
             sudo rm -rf "${APP_DIR}"
             sudo git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" "${APP_DIR}"
             cd "${APP_DIR}"
+=======
+            echo "==> Шаг 2: Синхронизация"
+            if [ -d "${APP_DIR}/.git" ]; then
+              sudo chown -R $(id -u):$(id -g) "${APP_DIR}"
+              cd "${APP_DIR}"
+              git remote set-url origin "${REPO_URL}"
+              git fetch --depth 1 origin master
+              git reset --hard FETCH_HEAD
+            else
+              sudo rm -rf "${APP_DIR}"
+              sudo mkdir -p "${APP_DIR}"
+              sudo chown -R $(id -u):$(id -g) "${APP_DIR}"
+              git clone --branch master --depth 1 "${REPO_URL}" "${APP_DIR}"
+              cd "${APP_DIR}"
+            fi
+>>>>>>> 386129f3324b7333eee316b756b49714b3ee15f9
             
             echo "==> Шаг 3-4: Namespace + secret"
             sudo k3s kubectl create namespace universal-video-downloader --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
