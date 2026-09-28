@@ -10,5 +10,5 @@ aiosqlite>=0.20.0
 httpx>=0.28.0
 python-multipart>=0.0.17
 slowapi>=0.1.9
-websockets>=14.0
+websockets>=17.1
 boto3>=1.35.0
